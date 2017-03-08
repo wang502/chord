@@ -1,12 +1,12 @@
 package chord
 
 import (
-    "sync"
+	"sync"
 )
 
-// represents a single node in Chord protocol
-type server struct {
-    name string
-    ring *Ring
-    sync.RWMutex
+// Server represents a single node in Chord protocol
+type Server struct {
+	name string
+	ring *Ring
+	sync.RWMutex
 }
