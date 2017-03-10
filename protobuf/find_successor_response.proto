@@ -1,7 +1,0 @@
-syntax = "proto3";
-package protobuf;
-
-message FindSuccessorResponse {
-    string ID = 1;
-    string host = 2;
-}

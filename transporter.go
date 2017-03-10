@@ -57,7 +57,7 @@ func (t *Transporter) SendListNodesRequest(server *Server, req *ListNodesRequest
 	return listNodesResp
 }
 
-// SendListNodesRequest sends outgoing find successor request to other Node server, a successor response will be returned
+// SendFindSuccessorRequest sends outgoing find successor request to other Node server, a successor response will be returned
 func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest, host string) *FindSuccessorResponse {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
@@ -66,7 +66,7 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 	}
 
 	url := host + t.findSuccessorPath
-	resp, err := t.httpClient(url, "chord.protobuf", &b)
+	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
 		log.Println("chord.FindSuccessor.response.error")
 		return nil
@@ -99,7 +99,7 @@ func (t *Transporter) ListNodesHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		if _, err = resp.Encode(w); err != nil {
+		if _, err := resp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
@@ -121,7 +121,7 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		if _, err = resp.Encode(w); err != nil {
+		if _, err := resp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}

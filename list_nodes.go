@@ -21,17 +21,17 @@ func NewListNodesRequest(serverName string) *ListNodesRequest {
 }
 
 func (req *ListNodesRequest) Encode(buf io.Writer) (int, error) {
-
+	return -1, nil
 }
 
 func (req *ListNodesRequest) Decode(r io.Reader) (int, error) {
-
+	return -1, nil
 }
 
 func (resp *ListNodesResponse) Encode(buf io.Writer) (int, error) {
-
+	return -1, nil
 }
 
 func (resp *ListNodesResponse) Decode(r io.Reader) (int, error) {
-
+	return -1, nil
 }

@@ -19,14 +19,15 @@ func NewServer(name string, config *Config) *Server {
 		node:   NewNode(config),
 		config: config,
 	}
+	return server
 }
 
 // ListNodes handles a incoming request sent from other server to list existing nodes
 func (server *Server) ListNodes(req *ListNodesRequest) *ListNodesResponse {
-
+	return nil
 }
 
 // FindSuccessor handles a incoming request sent from other server to help find successor
 func (server *Server) FindSuccessor(req *FindSuccessorRequest) *FindSuccessorResponse {
-
+	return &FindSuccessorResponse{}
 }

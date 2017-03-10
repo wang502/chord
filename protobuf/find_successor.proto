@@ -5,3 +5,8 @@ message FindSuccessorRequest {
     string ID = 1;
     string host = 2;
 }
+
+message FindSuccessorResponse {
+    string ID = 1;
+    string host = 2;
+}
