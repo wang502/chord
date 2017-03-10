@@ -1,0 +1,6 @@
+syntax = "proto3";
+package = "protobuf";
+
+message ListNodesRequest {
+    string serverName = 1;
+}
