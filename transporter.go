@@ -14,6 +14,7 @@ type Transporter struct {
 	httpClient        http.Client
 	listNodesPath     string
 	findSuccessorPath string
+	notifyPath        string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -22,6 +23,7 @@ func NewTransporter() *Transporter {
 		httpClient:        http.Client{},
 		listNodesPath:     "/listNodes",
 		findSuccessorPath: "/findSuccessor",
+		notifyPath:        "/notify",
 	}
 }
 
@@ -58,14 +60,14 @@ func (t *Transporter) SendListNodesRequest(server *Server, req *ListNodesRequest
 }
 
 // SendFindSuccessorRequest sends outgoing find successor request to other Node server, a successor response will be returned
-func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest, host string) *FindSuccessorResponse {
+func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest) *FindSuccessorResponse {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
 		log.Println("chord.FindSuccessor.encoding.error")
 		return nil
 	}
 
-	url := host + t.findSuccessorPath
+	url := req.host + t.findSuccessorPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
 		log.Println("chord.FindSuccessor.response.error")
@@ -79,6 +81,11 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 	}
 
 	return successorResp
+}
+
+// SendNotifyRequest sends a request to other node to nofify it about the possible new predecessor
+func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) *NotifyResponse {
+	return nil
 }
 
 // Receiving
@@ -125,5 +132,12 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
+	}
+}
+
+// NotifyHandler handles incoming notify about possibe new predecessor
+func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
 	}
 }

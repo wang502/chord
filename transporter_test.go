@@ -10,8 +10,8 @@ import (
 )
 
 func TestTransporter(t *testing.T) {
-	server := NewServer("", DefaultConfig("localhost"))
 	httpTransporter := NewTransporter()
+	server := NewServer("", DefaultConfig("localhost"), httpTransporter)
 	router := mux.NewRouter()
 	httpTransporter.Install(server, router)
 
@@ -26,4 +26,10 @@ func TestTransporter(t *testing.T) {
 
 	handler := http.HandlerFunc(httpTransporter.FindSuccessorHandler(server))
 	handler.ServeHTTP(rr, req)
+
+	findSuccessorResp := &FindSuccessorResponse{}
+	_, err = findSuccessorResp.Decode(rr.Body)
+	if err != nil {
+		t.Error("response decode error")
+	}
 }
