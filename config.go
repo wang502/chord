@@ -3,11 +3,9 @@ package chord
 import (
 	"crypto/sha1"
 	"encoding/json"
-	_ "errors"
 	"hash"
 	"io/ioutil"
 	"log"
-	_ "strings"
 )
 
 // Config represents configuration for a Chord node

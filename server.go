@@ -40,17 +40,8 @@ func (server *Server) Join(existingHost string) error {
 	return nil
 }
 
-// ListNodes handles a incoming request sent from other server to list existing nodes
-func (server *Server) ListNodes(req *ListNodesRequest) *ListNodesResponse {
-	return nil
-}
-
 // FindSuccessor handles a incoming request sent from other server to help find successor
 func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
-	// for testing
-	// return &FindSuccessorResponse{"test", "localhost"}
-	// return nil
-
 	id := []byte(req.ID)
 	localNode := server.node
 	resp := &FindSuccessorResponse{}
@@ -94,6 +85,7 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 }
 
 // utils
+
 // Checks if a key is STRICTLY between two ID's exclusively
 func between(id1, id2, key []byte) bool {
 	// Check for ring wrap around
