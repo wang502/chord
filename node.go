@@ -5,10 +5,11 @@ type Node struct {
 	ID          []byte
 	successor   *RemoteNode
 	finger      []*RemoteNode
-	predecessor *Node
+	predecessor *RemoteNode
 	fingerIndex int
 }
 
+// RemoteNode represents a virtual remote Node involved in Chord protocol, containing hashed ID and host
 type RemoteNode struct {
 	ID   []byte
 	host string
@@ -45,21 +46,40 @@ func generateID(config *Config) []byte {
 */
 
 // GetID returns the ID of the Node
-func (p *Node) GetID() []byte {
-	return p.ID
+func (n *Node) GetID() []byte {
+	return n.ID
 }
 
 // Successor returns the successor inside this local Node
-func (p *Node) Successor() *RemoteNode {
-	return p.successor
+func (n *Node) Successor() *RemoteNode {
+	return n.successor
 }
 
 // Finger returns finger table inside the Node
-func (p *Node) Finger() []*RemoteNode {
-	return p.finger
+func (n *Node) Finger() []*RemoteNode {
+	return n.finger
 }
 
 // Predecessor returns the predecessor
-func (p *Node) Predecessor() *Node {
-	return p.predecessor
+func (n *Node) Predecessor() *RemoteNode {
+	return n.predecessor
+}
+
+/*
+  Setter
+*/
+
+// SetID sets node's id
+func (n *Node) SetID(id []byte) {
+	n.ID = id
+}
+
+// SetSuccessor sets node's successor
+func (n *Node) SetSuccessor(succ *RemoteNode) {
+	n.successor = succ
+}
+
+// SetPredecessor sets node's predecessor
+func (n *Node) SetPredecessor(pred *RemoteNode) {
+	n.predecessor = pred
 }

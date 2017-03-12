@@ -2,7 +2,7 @@ package chord
 
 import (
 	"bytes"
-	"log"
+	"fmt"
 	"sync"
 )
 
@@ -26,16 +26,30 @@ func NewServer(name string, config *Config, transporter *Transporter) *Server {
 	return server
 }
 
+// Join joins an existing chord ring, given existingHost is one of the node in the ring
+func (server *Server) Join(existingHost string) error {
+	localNode := server.node
+	findSuccessorReq := NewFindSuccessorRequest(localNode.ID, existingHost)
+	findSuccessorResp, err := server.transporter.SendFindSuccessorRequest(server, findSuccessorReq)
+	if err != nil {
+		return fmt.Errorf("Chord.join.error.%s", err)
+	}
+
+	successorNode := NewRemoteNode([]byte(findSuccessorResp.ID), findSuccessorResp.host)
+	localNode.SetSuccessor(successorNode)
+	return nil
+}
+
 // ListNodes handles a incoming request sent from other server to list existing nodes
 func (server *Server) ListNodes(req *ListNodesRequest) *ListNodesResponse {
 	return nil
 }
 
 // FindSuccessor handles a incoming request sent from other server to help find successor
-func (server *Server) FindSuccessor(req *FindSuccessorRequest) *FindSuccessorResponse {
+func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
 	// for testing
 	// return &FindSuccessorResponse{"test", "localhost"}
-	//return nil
+	// return nil
 
 	id := []byte(req.ID)
 	localNode := server.node
@@ -46,29 +60,23 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) *FindSuccessorRes
 		if bytes.Compare(id, localNode.ID) == -1 {
 			resp.ID = string(localNode.ID)
 			resp.host = server.config.Host
-			return resp
+			return resp, nil
 		}
 	} else {
 		successor := localNode.Successor()
 		if between(localNode.ID, []byte(successor.ID), id) {
 			resp.ID = string(successor.ID)
 			resp.host = successor.host
-			return resp
+			return resp, nil
 		}
 	}
 
 	closestPre := server.closestPreceedingNode(id)
 	if closestPre == nil {
-		log.Println("server.closestPreceedingNode.NothingFound")
-		return resp
+		return resp, fmt.Errorf("server.closestPreceedingNode.NothingFound")
 	}
 	findSuccRequest := NewFindSuccessorRequest(closestPre.ID, closestPre.host)
 	return server.transporter.SendFindSuccessorRequest(server, findSuccRequest)
-}
-
-// Join lets local node joins an Chord ring from contacting an host involved in Chord
-func (server *Server) Join(existingHost string) error {
-	return nil
 }
 
 // closestPreceedingNode is a helper function to find the cloest preceeding node of the node with given hashed id from finger table
@@ -82,7 +90,7 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 			}
 		}
 	}
-	return nil
+	return &RemoteNode{ID: localNode.ID, host: server.config.Host}
 }
 
 // utils

@@ -1,7 +1,6 @@
 package chord
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -25,7 +24,7 @@ type FindSuccessorResponse struct {
 //NewFindSuccessorRequest initializes a new request to find successor
 func NewFindSuccessorRequest(bytes []byte, host string) *FindSuccessorRequest {
 	return &FindSuccessorRequest{
-		ID:   fmt.Sprintf("%s", bytes),
+		ID:   string(bytes),
 		host: host,
 	}
 }
