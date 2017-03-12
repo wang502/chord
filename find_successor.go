@@ -38,7 +38,7 @@ func (req *FindSuccessorRequest) Encode(buf io.Writer) (int, error) {
 	}
 	data, err := proto.Marshal(pb)
 	if err != nil {
-		log.Println("chord.FindSuccessor.encode.error")
+		log.Println("chord.FindSuccessorRequest.encode.error")
 		return -1, err
 	}
 
@@ -49,13 +49,13 @@ func (req *FindSuccessorRequest) Encode(buf io.Writer) (int, error) {
 func (req *FindSuccessorRequest) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		log.Println("chord.FindSuccessor.decode.error")
+		log.Println("chord.FindSuccessorRequest.decode.error")
 		return -1, err
 	}
 
 	pb := &pb.FindSuccessorRequest{}
 	if err = proto.Unmarshal(data, pb); err != nil {
-		log.Println("chord.FindSuccessor.decode.error")
+		log.Println("chord.FindSuccessorRequest.decode.error")
 		return -1, err
 	}
 
@@ -82,10 +82,14 @@ func (resp *FindSuccessorResponse) Encode(buf io.Writer) (int, error) {
 
 // Decode decodes the bytes read from buffer and store data into FindSuccessorResponse entry
 func (resp *FindSuccessorResponse) Decode(r io.Reader) (int, error) {
-	data, _ := ioutil.ReadAll(r)
-	pb := &pb.FindSuccessorResponse{}
-	err := proto.Unmarshal(data, pb)
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
+		log.Println("chord.FindSuccessorRequest.decode.error")
+		return -1, err
+	}
+
+	pb := &pb.FindSuccessorResponse{}
+	if err = proto.Unmarshal(data, pb); err != nil {
 		log.Println("chord.FindSuccessorResponse.decode.error")
 		return -1, err
 	}

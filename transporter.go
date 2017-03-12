@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"net/http"
 
-	"log"
-
 	"github.com/gorilla/mux"
 )
 
@@ -38,20 +36,21 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
-		log.Println("chord.FindSuccessor.encoding.error")
 		return nil, err
 	}
 
 	url := req.host + t.findSuccessorPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
+
+	//data, _ := ioutil.ReadAll(resp.Body)
+	//log.Println(len(data))
+
 	if err != nil {
-		log.Println("chord.FindSuccessor.response.error")
 		return nil, err
 	}
 
 	successorResp := &FindSuccessorResponse{}
 	if _, err = successorResp.Decode(resp.Body); err != nil {
-		log.Println("chord.FindSuccessor.decoding.error")
 		return nil, err
 	}
 

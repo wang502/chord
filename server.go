@@ -64,9 +64,11 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 
 	closestPre := server.closestPreceedingNode(id)
 	if closestPre == nil {
-		return resp, fmt.Errorf("server.closestPreceedingNode.NothingFound")
+		resp.ID = string(localNode.ID)
+		resp.host = server.config.Host
+		return resp, nil
 	}
-	findSuccRequest := NewFindSuccessorRequest(closestPre.ID, closestPre.host)
+	findSuccRequest := NewFindSuccessorRequest(id, closestPre.host)
 	return server.transporter.SendFindSuccessorRequest(server, findSuccRequest)
 }
 
@@ -81,7 +83,8 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 			}
 		}
 	}
-	return &RemoteNode{ID: localNode.ID, host: server.config.Host}
+	//return &RemoteNode{ID: localNode.ID, host: server.config.Host}
+	return nil
 }
 
 // utils

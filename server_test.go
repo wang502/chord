@@ -3,7 +3,6 @@ package chord
 import (
 	"bytes"
 	"crypto/sha1"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,6 +18,7 @@ func hashHelper(host string) []byte {
 }
 
 func TestFindSuccessor(t *testing.T) {
+	/* Initialize 3 Chord servers for testing*/
 	config1 := DefaultConfig("host1")
 	httpTransporter1 := NewTransporter()
 	server1 := NewServer("node1", config1, httpTransporter1)
@@ -50,7 +50,6 @@ func TestFindSuccessor(t *testing.T) {
 
 	findSuccessorResp1 := &FindSuccessorResponse{}
 	_, err = findSuccessorResp1.Decode(rr1.Body)
-	fmt.Println(findSuccessorResp1.host)
 	if err != nil {
 		t.Error("response decode error")
 	}
@@ -107,5 +106,23 @@ func TestFindSuccessor(t *testing.T) {
 	// check response result
 	if bytes.Compare([]byte(findSuccessorResp3.ID), server1.node.ID) != 0 || findSuccessorResp3.host != "host1" {
 		t.Error("wrong FindSuccessorResponse")
+	}
+}
+
+func TestJoin(t *testing.T) {
+	config2 := DefaultConfig("http://localhost:4000")
+	httpTransporter2 := NewTransporter()
+	server2 := NewServer("TestNode2", config2, httpTransporter2)
+	router2 := mux.NewRouter()
+	httpTransporter2.Install(server2, router2)
+
+	err := server2.Join("http://localhost:3000")
+	if err != nil {
+		t.Errorf("unable to join existing host, %s", err)
+	}
+
+	succ := server2.node.Successor()
+	if bytes.Compare(succ.ID, hashHelper("http://localhost:3000")) != 0 || succ.host != "http://localhost:3000" {
+		t.Errorf("wrong successor returned")
 	}
 }

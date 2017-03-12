@@ -1,5 +1,9 @@
 package chord
 
+import (
+	"sync"
+)
+
 // Node represents a Node node involved in Chord protocol
 type Node struct {
 	ID          []byte
@@ -7,6 +11,7 @@ type Node struct {
 	finger      []*RemoteNode
 	predecessor *RemoteNode
 	fingerIndex int
+	sync.RWMutex
 }
 
 // RemoteNode represents a virtual remote Node involved in Chord protocol, containing hashed ID and host
@@ -71,15 +76,21 @@ func (n *Node) Predecessor() *RemoteNode {
 
 // SetID sets node's id
 func (n *Node) SetID(id []byte) {
+	n.Lock()
+	defer n.Unlock()
 	n.ID = id
 }
 
 // SetSuccessor sets node's successor
 func (n *Node) SetSuccessor(succ *RemoteNode) {
+	n.Lock()
+	defer n.Unlock()
 	n.successor = succ
 }
 
 // SetPredecessor sets node's predecessor
 func (n *Node) SetPredecessor(pred *RemoteNode) {
+	n.Lock()
+	defer n.Unlock()
 	n.predecessor = pred
 }
