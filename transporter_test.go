@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func TestFindSuccessor(t *testing.T) {
+func TestFindSuccessorHandler(t *testing.T) {
 	// initialize Chord server, http transporter, router for test
 	httpTransporter := NewTransporter()
 	server := NewServer("", DefaultConfig("localhost2"), httpTransporter)
