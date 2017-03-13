@@ -139,4 +139,13 @@ func TestJoin(t *testing.T) {
 	if err := server2.Join("http://localhost:4000"); err != nil {
 		t.Errorf("unable to join existing host, %s", err)
 	}
+
+	succ2 := server2.node.Successor()
+	if bytes.Compare(succ2.ID, hashHelper("http://localhost:4000")) != 0 || succ2.host != "http://localhost:4000" {
+		t.Errorf("wrong successor returned")
+	}
+}
+
+func TestJoinAndStabilize(t *testing.T) {
+
 }

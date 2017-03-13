@@ -136,7 +136,7 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 
 		resp, err := server.Notify(req)
 		if resp == nil || err != nil {
-			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
+			http.Error(w, "failed to return successor", http.StatusBadRequest)
 			return
 		}
 
@@ -151,8 +151,8 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		predResp, err := server.HandleGetPredecessorRequest()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNoContent)
+		if predResp == nil || err != nil {
+			http.Error(w, "failed to return predecessor", http.StatusNoContent)
 			return
 		}
 

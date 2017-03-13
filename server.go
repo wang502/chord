@@ -3,6 +3,7 @@ package chord
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -37,7 +38,7 @@ func (server *Server) Join(existingHost string) error {
 
 	successorNode := NewRemoteNode([]byte(findSuccessorResp.ID), findSuccessorResp.host)
 	localNode.SetSuccessor(successorNode)
-	return nil
+	return server.Stabilize()
 }
 
 // Stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
@@ -46,24 +47,29 @@ func (server *Server) Stabilize() error {
 	if server.node.Successor() == nil {
 		return fmt.Errorf("no need to stabilize.no sucessor")
 	}
+
 	successor := server.node.Successor()
 	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
-	if err != nil {
-		return fmt.Errorf("Chord.stabilize.error.%s", err)
-	}
-
-	ID := []byte(predResp.ID)
-	host := predResp.host
-	// verifies server's immediate successor
-	// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
-	// should be updated to the one contained in the response
-	if between(server.node.ID, successor.ID, ID) {
-		server.node.SetSuccessor(NewRemoteNode(ID, host))
-	}
-
-	_, err = server.transporter.SendNotifyRequest(server, NewNotifyRequest(server.node.ID, server.config.Host, host))
-	if err != nil {
+	if predResp == nil {
+		log.Printf("Chord.stabilize.error.%s", err)
+	} else if err != nil {
 		return fmt.Errorf("Chord.stabilize.notify.%s", err)
+	} else {
+		ID := []byte(predResp.ID)
+		host := predResp.host
+
+		// verifies server's immediate successor
+		// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
+		// should be updated to the one contained in the response
+		if between(server.node.ID, successor.ID, ID) {
+			server.node.SetSuccessor(NewRemoteNode(ID, host))
+		}
+	}
+
+	// notify the immediate successor about the server
+	_, err = server.transporter.SendNotifyRequest(server, NewNotifyRequest(server.node.ID, server.config.Host, server.node.Successor().host))
+	if err != nil {
+		//return fmt.Errorf("Chord.stabilize.notify.%s", err)
 	}
 
 	return nil
@@ -81,23 +87,23 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 	resp := &FindSuccessorResponse{}
 
 	// if this local node does not have successor yet, compare local server's bytes id with incoming id
-	if localNode.successor == nil {
-		if bytes.Compare(id, localNode.ID) == -1 {
-			resp.ID = string(localNode.ID)
-			resp.host = server.config.Host
-			return resp, nil
-		}
-	} else {
-		successor := localNode.Successor()
-		if between(localNode.ID, []byte(successor.ID), id) {
-			resp.ID = string(successor.ID)
-			resp.host = successor.host
-			return resp, nil
-		}
+	if localNode.Successor() == nil {
+		log.Println("exe1")
+		resp.ID = string(localNode.ID)
+		resp.host = server.config.Host
+		return resp, nil
+	}
+	successor := localNode.Successor()
+	if between(localNode.ID, successor.ID, id) {
+		log.Println("exe2")
+		resp.ID = string(successor.ID)
+		resp.host = successor.host
+		return resp, nil
 	}
 
 	closestPre := server.closestPreceedingNode(id)
 	if closestPre == nil {
+		log.Println("exe3")
 		resp.ID = string(localNode.ID)
 		resp.host = server.config.Host
 		return resp, nil
