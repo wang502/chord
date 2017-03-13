@@ -24,6 +24,11 @@ func NewGetPredecessorResponse(id []byte, host string) *GetPredecessorResponse {
 	}
 }
 
+// Invalid check whether the GetPredecessorResponse is invalid (containing empty values)
+func (resp *GetPredecessorResponse) Invalid() bool {
+	return resp.ID == "" || resp.host == ""
+}
+
 // Encode encodes GetPredecessorResponse into data buffer
 func (resp *GetPredecessorResponse) Encode(w io.Writer) (int, error) {
 	pb := &pb.GetPredecessorResponse{
@@ -44,12 +49,12 @@ func (resp *GetPredecessorResponse) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		log.Println("chord.GetPredecessorResponse.decode.error")
-		return -1, fmt.Errorf("chord.GetPredecessorResponse.decode.error.%s", err)
+		return -1, err
 	}
 
 	pb := &pb.GetPredecessorResponse{}
 	if err = proto.Unmarshal(data, pb); err != nil {
-		return -1, fmt.Errorf("chord.GetPredecessorResponse.decode.error.%s", err)
+		return -1, err
 	}
 
 	resp.ID = pb.ID

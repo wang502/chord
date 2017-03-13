@@ -69,7 +69,7 @@ func (server *Server) Stabilize() error {
 	// notify the immediate successor about the server
 	_, err = server.transporter.SendNotifyRequest(server, NewNotifyRequest(server.node.ID, server.config.Host, server.node.Successor().host))
 	if err != nil {
-		//return fmt.Errorf("Chord.stabilize.notify.%s", err)
+		return fmt.Errorf("Chord.stabilize.notify.%s", err)
 	}
 
 	return nil
@@ -77,6 +77,20 @@ func (server *Server) Stabilize() error {
 
 // Notify handles the NotifyRequest sent from another server
 func (server *Server) Notify(req *NotifyRequest) (*NotifyResponse, error) {
+	possiblePredID := []byte(req.ID)
+	possiblePredHost := req.host
+	currentPredecessor := server.node.Predecessor()
+
+	// when this node haven't set its predecessor, then new incoming notify request is from a node that should be a predecessor
+	if currentPredecessor == nil {
+		server.node.SetPredecessor(NewRemoteNode(possiblePredID, possiblePredHost))
+		return NewNotifyResponse(server.node.ID, server.config.Host), nil
+	}
+	// update the predecessor if the notify request is from a node that has bigger byte value than the current predecessor
+	if between(currentPredecessor.ID, server.node.ID, possiblePredID) {
+		server.node.SetPredecessor(NewRemoteNode(possiblePredID, possiblePredHost))
+		return NewNotifyResponse(server.node.ID, server.config.Host), nil
+	}
 	return nil, nil
 }
 
@@ -88,14 +102,12 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 
 	// if this local node does not have successor yet, compare local server's bytes id with incoming id
 	if localNode.Successor() == nil {
-		log.Println("exe1")
 		resp.ID = string(localNode.ID)
 		resp.host = server.config.Host
 		return resp, nil
 	}
 	successor := localNode.Successor()
 	if between(localNode.ID, successor.ID, id) {
-		log.Println("exe2")
 		resp.ID = string(successor.ID)
 		resp.host = successor.host
 		return resp, nil
@@ -103,7 +115,6 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 
 	closestPre := server.closestPreceedingNode(id)
 	if closestPre == nil {
-		log.Println("exe3")
 		resp.ID = string(localNode.ID)
 		resp.host = server.config.Host
 		return resp, nil

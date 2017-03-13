@@ -113,23 +113,31 @@ func TestFindSuccessor(t *testing.T) {
 // started server acts as an exsiting host in Chord ring
 func TestJoin(t *testing.T) {
 	/* Server1 */
-	config1 := DefaultConfig("http://localhost:4000")
+	config1 := DefaultConfig("http://localhost:5000")
 	httpTransporter1 := NewTransporter()
 	server1 := NewServer("TestNode2", config1, httpTransporter1)
 	router1 := mux.NewRouter()
 	httpTransporter1.Install(server1, router1)
 
 	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
-	if err := server1.Join("http://localhost:3000"); err != nil {
+	if err := server1.Join("http://localhost:4000"); err != nil {
 		t.Errorf("unable to join existing host, %s", err)
 	}
 	succ := server1.node.Successor()
-	if bytes.Compare(succ.ID, hashHelper("http://localhost:3000")) != 0 || succ.host != "http://localhost:3000" {
+	if bytes.Compare(succ.ID, hashHelper("http://localhost:4000")) != 0 || succ.host != "http://localhost:4000" {
 		t.Errorf("wrong successor returned")
 	}
 
+	predResp1, err := server1.transporter.SendGetPredecessorRequest(server1, "http://localhost:4000")
+	if err != nil {
+		t.Errorf("unable to get predecessor response")
+	}
+	if bytes.Compare([]byte(predResp1.ID), server1.node.ID) != 0 || predResp1.host != server1.config.Host {
+		t.Errorf("wrong predecessor returned")
+	}
+
 	/* Server2 */
-	config2 := DefaultConfig("http://localhost:5000")
+	config2 := DefaultConfig("http://localhost:3000")
 	httpTransporter2 := NewTransporter()
 	server2 := NewServer("TestNode2", config2, httpTransporter2)
 	router2 := mux.NewRouter()
@@ -143,6 +151,14 @@ func TestJoin(t *testing.T) {
 	succ2 := server2.node.Successor()
 	if bytes.Compare(succ2.ID, hashHelper("http://localhost:4000")) != 0 || succ2.host != "http://localhost:4000" {
 		t.Errorf("wrong successor returned")
+	}
+
+	predResp2, err := server2.transporter.SendGetPredecessorRequest(server2, "http://localhost:4000")
+	if err != nil {
+		t.Errorf("unable to get predecessor response")
+	}
+	if bytes.Compare([]byte(predResp2.ID), server2.node.ID) != 0 || predResp2.host != server2.config.Host {
+		t.Errorf("wrong predecessor returned")
 	}
 }
 
