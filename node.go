@@ -57,16 +57,22 @@ func (n *Node) GetID() []byte {
 
 // Successor returns the successor inside this local Node
 func (n *Node) Successor() *RemoteNode {
+	n.Lock()
+	defer n.Unlock()
 	return n.successor
 }
 
 // Finger returns finger table inside the Node
 func (n *Node) Finger() []*RemoteNode {
+	n.Lock()
+	defer n.Unlock()
 	return n.finger
 }
 
 // Predecessor returns the predecessor
 func (n *Node) Predecessor() *RemoteNode {
+	n.Lock()
+	defer n.Unlock()
 	return n.predecessor
 }
 

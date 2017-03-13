@@ -42,6 +42,30 @@ func (server *Server) Join(existingHost string) error {
 
 // Stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
 func (server *Server) Stabilize() error {
+	//return nil
+	if server.node.Successor() == nil {
+		return fmt.Errorf("no need to stabilize.no sucessor")
+	}
+	successor := server.node.Successor()
+	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
+	if err != nil {
+		return fmt.Errorf("Chord.stabilize.error.%s", err)
+	}
+
+	ID := []byte(predResp.ID)
+	host := predResp.host
+	// verifies server's immediate successor
+	// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
+	// should be updated to the one contained in the response
+	if between(server.node.ID, successor.ID, ID) {
+		server.node.SetSuccessor(NewRemoteNode(ID, host))
+	}
+
+	_, err = server.transporter.SendNotifyRequest(server, NewNotifyRequest(server.node.ID, server.config.Host, host))
+	if err != nil {
+		return fmt.Errorf("Chord.stabilize.notify.%s", err)
+	}
+
 	return nil
 }
 
@@ -95,6 +119,16 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 	}
 	//return &RemoteNode{ID: localNode.ID, host: server.config.Host}
 	return nil
+}
+
+// HandleGetPredecessorRequest returns the predecessor of this local node
+func (server *Server) HandleGetPredecessorRequest() (*GetPredecessorResponse, error) {
+	pred := server.node.Predecessor()
+	if pred == nil {
+		return nil, fmt.Errorf("this node has no predecessor")
+	}
+	resp := NewGetPredecessorResponse(pred.ID, pred.host)
+	return resp, nil
 }
 
 // utils

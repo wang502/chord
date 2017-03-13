@@ -15,6 +15,7 @@ type Transporter struct {
 	listNodesPath     string
 	findSuccessorPath string
 	notifyPath        string
+	getPredecesorPath string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -23,6 +24,7 @@ func NewTransporter() *Transporter {
 		httpClient:        http.Client{},
 		findSuccessorPath: "/findSuccessor",
 		notifyPath:        "/notify",
+		getPredecesorPath: "/getPredecessor",
 	}
 }
 
@@ -30,6 +32,7 @@ func NewTransporter() *Transporter {
 func (t *Transporter) Install(server *Server, mux *mux.Router) {
 	mux.HandleFunc(t.notifyPath, t.NotifyHandler(server))
 	mux.HandleFunc(t.findSuccessorPath, t.FindSuccessorHandler(server))
+	mux.HandleFunc(t.findSuccessorPath, t.GetPredecessorHandler(server))
 }
 
 // Sending
@@ -66,7 +69,7 @@ func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*No
 		return nil, err
 	}
 
-	url := req.host + t.notifyPath
+	url := req.targetHost + t.notifyPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 
 	if err != nil {
@@ -79,6 +82,22 @@ func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*No
 	}
 
 	return notifyResp, nil
+}
+
+// SendGetPredecessorRequest sends a request to get the predecessor of server on given host
+func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*GetPredecessorResponse, error) {
+	url := host + t.getPredecesorPath
+	resp, err := t.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	predResp := &GetPredecessorResponse{}
+	if _, err = predResp.Decode(resp.Body); err != nil {
+		return nil, err
+	}
+
+	return predResp, nil
 }
 
 // Receiving
@@ -116,13 +135,28 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 		}
 
 		resp, err := server.Notify(req)
-		log.Println(resp.host)
 		if resp == nil || err != nil {
 			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
 			return
 		}
 
 		if _, err := resp.Encode(w); err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
+// GetPredecessorHandler handles incoming request to return this local server's predecessor
+func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		predResp, err := server.HandleGetPredecessorRequest()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNoContent)
+			return
+		}
+
+		if _, err := predResp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}

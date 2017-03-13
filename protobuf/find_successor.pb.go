@@ -7,11 +7,13 @@ Package protobuf is a generated protocol buffer package.
 
 It is generated from these files:
 	find_successor.proto
+	get_predecessor.proto
 	notify.proto
 
 It has these top-level messages:
 	FindSuccessorRequest
 	FindSuccessorResponse
+	GetPredecessorResponse
 	NotifyRequest
 	NotifyResponse
 */

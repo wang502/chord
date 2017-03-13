@@ -14,8 +14,9 @@ import (
 
 // NotifyRequest represents a request sent to successor to notify it about local node
 type NotifyRequest struct {
-	ID   string
-	host string
+	ID         string
+	host       string
+	targetHost string
 }
 
 // NotifyResponse represents a response to a NotifyRequest
@@ -25,10 +26,11 @@ type NotifyResponse struct {
 }
 
 // NewNotifyRequest initializes a new notify request
-func NewNotifyRequest(id []byte, host string) *NotifyRequest {
+func NewNotifyRequest(id []byte, host string, targetHost string) *NotifyRequest {
 	return &NotifyRequest{
-		ID:   string(id),
-		host: host,
+		ID:         string(id),
+		host:       host,
+		targetHost: targetHost,
 	}
 }
 
@@ -43,8 +45,9 @@ func NewNotifyResponse(id []byte, host string) *NotifyResponse {
 // Encode encodes NotifyRequest into data buffer
 func (req *NotifyRequest) Encode(w io.Writer) (int, error) {
 	pb := &pb.NotifyRequest{
-		ID:   req.ID,
-		Host: req.host,
+		ID:         req.ID,
+		Host:       req.host,
+		TargetHost: req.targetHost,
 	}
 	data, err := proto.Marshal(pb)
 	if err != nil {
@@ -70,6 +73,7 @@ func (req *NotifyRequest) Decode(r io.Reader) (int, error) {
 
 	req.ID = pb.ID
 	req.host = pb.Host
+	req.targetHost = pb.TargetHost
 	return len(data), nil
 }
 

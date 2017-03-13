@@ -4,6 +4,7 @@ package protobuf;
 message NotifyRequest {
     string ID = 1;
     string host = 2;
+    string targetHost = 3;
 }
 
 message NotifyResponse {
