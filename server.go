@@ -40,6 +40,16 @@ func (server *Server) Join(existingHost string) error {
 	return nil
 }
 
+// Stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
+func (server *Server) Stabilize() error {
+	return nil
+}
+
+// Notify handles the NotifyRequest sent from another server
+func (server *Server) Notify(req *NotifyRequest) (*NotifyResponse, error) {
+	return nil, nil
+}
+
 // FindSuccessor handles a incoming request sent from other server to help find successor
 func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
 	id := []byte(req.ID)

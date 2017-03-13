@@ -109,20 +109,34 @@ func TestFindSuccessor(t *testing.T) {
 	}
 }
 
+// To run this test, go to /example folder and start a HTTP server in the backgraound
+// started server acts as an exsiting host in Chord ring
 func TestJoin(t *testing.T) {
-	config2 := DefaultConfig("http://localhost:4000")
+	/* Server1 */
+	config1 := DefaultConfig("http://localhost:4000")
+	httpTransporter1 := NewTransporter()
+	server1 := NewServer("TestNode2", config1, httpTransporter1)
+	router1 := mux.NewRouter()
+	httpTransporter1.Install(server1, router1)
+
+	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
+	if err := server1.Join("http://localhost:3000"); err != nil {
+		t.Errorf("unable to join existing host, %s", err)
+	}
+	succ := server1.node.Successor()
+	if bytes.Compare(succ.ID, hashHelper("http://localhost:3000")) != 0 || succ.host != "http://localhost:3000" {
+		t.Errorf("wrong successor returned")
+	}
+
+	/* Server2 */
+	config2 := DefaultConfig("http://localhost:5000")
 	httpTransporter2 := NewTransporter()
 	server2 := NewServer("TestNode2", config2, httpTransporter2)
 	router2 := mux.NewRouter()
 	httpTransporter2.Install(server2, router2)
 
-	err := server2.Join("http://localhost:3000")
-	if err != nil {
+	// Test server2 joins and existing Chord ring based on exsiting host, from exsiting host "http://localhost:3000"
+	if err := server2.Join("http://localhost:4000"); err != nil {
 		t.Errorf("unable to join existing host, %s", err)
-	}
-
-	succ := server2.node.Successor()
-	if bytes.Compare(succ.ID, hashHelper("http://localhost:3000")) != 0 || succ.host != "http://localhost:3000" {
-		t.Errorf("wrong successor returned")
 	}
 }

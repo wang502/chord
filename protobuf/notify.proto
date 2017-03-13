@@ -1,0 +1,12 @@
+syntax = "proto3";
+package protobuf;
+
+message NotifyRequest {
+    string ID = 1;
+    string host = 2;
+}
+
+message NotifyResponse {
+    string ID = 1;
+    string host = 2;
+}

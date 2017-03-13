@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"net/http"
 
+	"log"
+
 	"github.com/gorilla/mux"
 )
 
@@ -59,7 +61,24 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 
 // SendNotifyRequest sends a request to other node to nofify it about the possible new predecessor
 func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*NotifyResponse, error) {
-	return nil, nil
+	var b bytes.Buffer
+	if _, err := req.Encode(&b); err != nil {
+		return nil, err
+	}
+
+	url := req.host + t.notifyPath
+	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
+
+	if err != nil {
+		return nil, err
+	}
+
+	notifyResp := &NotifyResponse{}
+	if _, err = notifyResp.Decode(resp.Body); err != nil {
+		return nil, err
+	}
+
+	return notifyResp, nil
 }
 
 // Receiving
@@ -74,6 +93,7 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 		}
 
 		resp, err := server.FindSuccessor(req)
+		log.Println(resp.host)
 		if resp == nil || err != nil {
 			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
 			return
@@ -89,6 +109,22 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 // NotifyHandler handles incoming notify about possibe new predecessor
 func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		req := &NotifyRequest{}
+		if _, err := req.Decode(r.Body); err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 
+		resp, err := server.Notify(req)
+		log.Println(resp.host)
+		if resp == nil || err != nil {
+			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
+			return
+		}
+
+		if _, err := resp.Encode(w); err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
 	}
 }
