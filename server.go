@@ -91,7 +91,7 @@ func (server *Server) Notify(req *NotifyRequest) (*NotifyResponse, error) {
 		server.node.SetPredecessor(NewRemoteNode(possiblePredID, possiblePredHost))
 		return NewNotifyResponse(server.node.ID, server.config.Host), nil
 	}
-	return nil, nil
+	return &NotifyResponse{}, nil
 }
 
 // FindSuccessor handles a incoming request sent from other server to help find successor

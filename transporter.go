@@ -6,6 +6,8 @@ import (
 
 	"log"
 
+	"fmt"
+
 	"github.com/gorilla/mux"
 )
 
@@ -17,6 +19,7 @@ type Transporter struct {
 	notifyPath         string
 	getPredecessorPath string
 	setPredecessorPath string
+	joinPath           string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -26,6 +29,7 @@ func NewTransporter() *Transporter {
 		findSuccessorPath:  "/findSuccessor",
 		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
+		joinPath:           "/join",
 	}
 }
 
@@ -34,6 +38,7 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 	mux.HandleFunc(t.notifyPath, t.NotifyHandler(server))
 	mux.HandleFunc(t.findSuccessorPath, t.FindSuccessorHandler(server))
 	mux.HandleFunc(t.getPredecessorPath, t.GetPredecessorHandler(server))
+	mux.HandleFunc(t.joinPath, t.JoinHandler(server)).Methods("POST")
 }
 
 // Sending
@@ -162,5 +167,20 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
+	}
+}
+
+// JoinHandler handles the post request for this server to join an existing Chord ring
+// the url pattern is '/join?host='
+func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		host := r.URL.Query().Get("host")
+		err := server.Join(host)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to join %s.%s", host, err), http.StatusBadRequest)
+			return
+		}
+
+		fmt.Fprintf(w, "success to join %s", host)
 	}
 }
