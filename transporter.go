@@ -29,7 +29,7 @@ func NewTransporter() *Transporter {
 		findSuccessorPath:  "/findSuccessor",
 		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
-		joinPath:           "/join",
+		joinPath:           "/join", // this path is for testing purpose
 	}
 }
 
@@ -52,9 +52,6 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 
 	url := req.host + t.findSuccessorPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
-
-	//data, _ := ioutil.ReadAll(resp.Body)
-	//log.Println(len(data))
 
 	if err != nil {
 		return nil, err
@@ -118,7 +115,7 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 		}
 
 		resp, err := server.FindSuccessor(req)
-		log.Printf("succ: %s", resp.host)
+		//log.Printf("succ: %s", resp.host)
 		if resp == nil || err != nil {
 			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
 			return
@@ -142,7 +139,7 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 
 		resp, err := server.Notify(req)
 		if resp == nil || err != nil {
-			http.Error(w, "failed to return successor", http.StatusBadRequest)
+			http.Error(w, "failed to notify", http.StatusBadRequest)
 			return
 		}
 
@@ -161,7 +158,7 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 			http.Error(w, "failed to return predecessor", http.StatusBadRequest)
 			return
 		}
-		log.Printf("pred: %s", predResp)
+		//log.Printf("pred: %s", predResp)
 
 		if _, err := predResp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
@@ -175,6 +172,7 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		host := r.URL.Query().Get("host")
+		log.Println(host)
 		err := server.Join(host)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to join %s.%s", host, err), http.StatusBadRequest)

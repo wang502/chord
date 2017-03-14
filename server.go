@@ -53,7 +53,7 @@ func (server *Server) Stabilize() error {
 	if predResp == nil {
 		log.Printf("Chord.stabilize.error.%s", err)
 	} else if err != nil {
-		return fmt.Errorf("Chord.stabilize.notify.%s", err)
+		return fmt.Errorf("Chord.stabilize.error.%s", err)
 	} else {
 		ID := []byte(predResp.ID)
 		host := predResp.host

@@ -46,14 +46,14 @@ func TestFindSuccessorHandler(t *testing.T) {
 // To run this test, go to /example folder and start a HTTP server in the backgraound at port 1000 and port 2000
 // started server acts as an exsiting host in Chord ring
 func TestJoinHalder(t *testing.T) {
-	resp, err := http.Post("http://localhost:2000/join?host=http://localhost:1000", "chord.join", nil)
+	resp, err := http.Post("http://localhost:2000/join?host=http://localhost:2001", "chord.join", nil)
 	buf := resp.Body
 	data, err := ioutil.ReadAll(buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if string(data) != "success to join http://localhost:1000" {
+	if string(data) != "success to join http://localhost:2001" {
 		log.Println(string(data))
 		t.Errorf("failted to join")
 	}

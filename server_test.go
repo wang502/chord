@@ -111,7 +111,7 @@ func TestFindSuccessor(t *testing.T) {
 
 // To run this test, go to /example folder and start a HTTP server in the backgraound
 // started server acts as an exsiting host in Chord ring
-func TestJoin(t *testing.T) {
+func TestJoinAndStabilize(t *testing.T) {
 	/* Server1 */
 	config1 := DefaultConfig("http://localhost:5000")
 	httpTransporter1 := NewTransporter()
@@ -160,8 +160,4 @@ func TestJoin(t *testing.T) {
 	if bytes.Compare([]byte(predResp2.ID), server2.node.ID) != 0 || predResp2.host != server2.config.Host {
 		t.Errorf("wrong predecessor returned")
 	}
-}
-
-func TestJoinAndStabilize(t *testing.T) {
-
 }
