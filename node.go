@@ -24,7 +24,7 @@ type RemoteNode struct {
 func NewNode(config *Config) *Node {
 	return &Node{
 		ID:          generateID(config),
-		successor:   nil,
+		successor:   defaultSuccessor(config), // the successor is the node itself at the beginning
 		finger:      make([]*RemoteNode, config.HashBits),
 		predecessor: nil,
 		fingerIndex: -1,
@@ -99,4 +99,8 @@ func (n *Node) SetPredecessor(pred *RemoteNode) {
 	n.Lock()
 	defer n.Unlock()
 	n.predecessor = pred
+}
+
+func defaultSuccessor(config *Config) *RemoteNode {
+	return NewRemoteNode(generateID(config), config.Host)
 }

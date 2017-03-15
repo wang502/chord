@@ -18,8 +18,10 @@ type Transporter struct {
 	findSuccessorPath  string
 	notifyPath         string
 	getPredecessorPath string
+	getSuccessorPath   string
 	setPredecessorPath string
 	joinPath           string
+	startPath          string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -29,7 +31,9 @@ func NewTransporter() *Transporter {
 		findSuccessorPath:  "/findSuccessor",
 		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
+		getSuccessorPath:   "/getSuccessor",
 		joinPath:           "/join", // this path is for testing purpose
+		startPath:          "/start",
 	}
 }
 
@@ -38,7 +42,9 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 	mux.HandleFunc(t.notifyPath, t.NotifyHandler(server))
 	mux.HandleFunc(t.findSuccessorPath, t.FindSuccessorHandler(server))
 	mux.HandleFunc(t.getPredecessorPath, t.GetPredecessorHandler(server))
+	mux.HandleFunc(t.getSuccessorPath, t.GetSuccessorHandler(server))
 	mux.HandleFunc(t.joinPath, t.JoinHandler(server)).Methods("POST")
+	mux.HandleFunc(t.startPath, t.StartHandler(server)).Methods("POST")
 }
 
 // Sending
@@ -167,6 +173,24 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 	}
 }
 
+// GetSuccessorHandler handles the incoming request to return this node's successor
+func (t *Transporter) GetSuccessorHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		succResp, err := server.HandleGetSuccessorRequest()
+		if err != nil {
+			http.Error(w, "failed to return successor", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("host %s's successor is %s", server.config.Host, succResp.host)
+
+		if _, err := succResp.Encode(w); err != nil {
+			http.Error(w, "", http.StatusBadRequest)
+			return
+		}
+	}
+}
+
 // JoinHandler handles the post request for this server to join an existing Chord ring
 // the url pattern is '/join?host='
 func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
@@ -180,5 +204,17 @@ func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
 		}
 
 		fmt.Fprintf(w, "success to join %s", host)
+	}
+}
+
+// StartHandler handles the incoming request to start this Chord server
+func (t *Transporter) StartHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := server.Start()
+		if err != nil {
+			fmt.Fprintf(w, "failed to start server %s", server.config.Host)
+		} else {
+			fmt.Fprintf(w, "success to start server %s", server.config.Host)
+		}
 	}
 }

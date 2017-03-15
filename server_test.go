@@ -6,8 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"log"
 
 	"github.com/gorilla/mux"
+	"github.com/wang502/chord"
 )
 
 func hashHelper(host string) []byte {
@@ -124,7 +128,8 @@ func TestJoinAndStabilize(t *testing.T) {
 		t.Errorf("unable to join existing host, %s", err)
 	}
 	succ := server1.node.Successor()
-	if bytes.Compare(succ.ID, hashHelper("http://localhost:4000")) != 0 || succ.host != "http://localhost:4000" {
+	log.Printf("debug.succ of http://localhost:5000 is %s", succ.host)
+	if succ.host != "http://localhost:4000" {
 		t.Errorf("wrong successor returned")
 	}
 
@@ -158,6 +163,90 @@ func TestJoinAndStabilize(t *testing.T) {
 		t.Errorf("unable to get predecessor response")
 	}
 	if bytes.Compare([]byte(predResp2.ID), server2.node.ID) != 0 || predResp2.host != server2.config.Host {
+		t.Errorf("wrong predecessor returned")
+	}
+}
+
+func TestStart(t *testing.T) {
+	// initialize an http client for sending request to test servers
+	client := http.Client{}
+
+	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
+	_, err := client.Post("http://localhost:5000/join?host=http://localhost:6000", "chord.join", nil)
+
+	// Test server1's start function, check whether it periodically stabilizes
+	_, err = client.Post("http://localhost:5000/start", "chord.start", nil)
+	_, err = client.Post("http://localhost:6000/start", "chord.start", nil)
+
+	time.Sleep(5 * chord.DefaultStabilizeInterval)
+
+	resp1, _ := client.Get("http://localhost:6000/getPredecessor")
+	predResp1 := &GetPredecessorResponse{}
+	_, err = predResp1.Decode(resp1.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(predResp1.ID), hashHelper("http://localhost:5000")) != 0 || predResp1.host != "http://localhost:5000" {
+		t.Errorf("wrong predecessor returned")
+	}
+
+	resp2, _ := client.Get("http://localhost:6000/getSuccessor")
+	succResp2 := &FindSuccessorResponse{}
+	_, err = succResp2.Decode(resp2.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(succResp2.ID), hashHelper("http://localhost:5000")) != 0 || succResp2.host != "http://localhost:5000" {
+		t.Errorf("wrong successor returned")
+	}
+
+	resp3, _ := client.Get("http://localhost:5000/getPredecessor")
+	predResp3 := &GetPredecessorResponse{}
+	_, err = predResp3.Decode(resp3.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(predResp3.ID), hashHelper("http://localhost:6000")) != 0 || predResp3.host != "http://localhost:6000" {
+		t.Errorf("wrong predecessor returned")
+	}
+
+	resp4, _ := client.Get("http://localhost:5000/getSuccessor")
+	succResp4 := &FindSuccessorResponse{}
+	_, err = succResp4.Decode(resp4.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(succResp4.ID), hashHelper("http://localhost:6000")) != 0 || succResp4.host != "http://localhost:6000" {
+		t.Errorf("wrong successor returned")
+	}
+
+	// -------------------------
+	//
+	// -------------------------
+	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
+	//
+	_, err = client.Post("http://localhost:7000/join?host=http://localhost:5000", "chord.join", nil)
+	_, err = client.Post("http://localhost:7000/start", "chord.start", nil)
+
+	time.Sleep(5 * chord.DefaultStabilizeInterval)
+
+	resp5, _ := client.Get("http://localhost:7000/getPredecessor")
+	predResp5 := &GetPredecessorResponse{}
+	_, err = predResp5.Decode(resp5.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(predResp5.ID), hashHelper("http://localhost:6000")) != 0 || predResp5.host != "http://localhost:6000" {
+		t.Errorf("wrong predecessor returned")
+	}
+
+	resp6, _ := client.Get("http://localhost:7000/getSuccessor")
+	predResp6 := &GetPredecessorResponse{}
+	_, err = predResp6.Decode(resp6.Body)
+	if err != nil {
+		t.Errorf("error decode.%s", err)
+	}
+	if bytes.Compare([]byte(predResp6.ID), hashHelper("http://localhost:5000")) != 0 || predResp6.host != "http://localhost:5000" {
 		t.Errorf("wrong predecessor returned")
 	}
 }

@@ -92,13 +92,13 @@ func (server *Server) Start() error {
 		defer server.routineGroup.Done()
 		server.startPeriodicalStabilize()
 	}()
-
-	server.routineGroup.Add(1)
-	go func() {
-		defer server.routineGroup.Done()
-		server.startPeriodicalFixFinger()
-	}()
-
+	/*
+		server.routineGroup.Add(1)
+		go func() {
+			defer server.routineGroup.Done()
+			server.startPeriodicalFixFinger()
+		}()
+	*/
 	return nil
 }
 
@@ -174,13 +174,12 @@ func (server *Server) periodicalStabilize(c chan bool) {
 
 // stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
 func (server *Server) stabilize() error {
-	log.Printf("stabilize: %s", server.config.Host)
-
 	if server.node.Successor() == nil {
 		return fmt.Errorf("no need to stabilize.no sucessor")
 	}
 
 	successor := server.node.Successor()
+	log.Printf("stabilize: host %s's successor is %s", server.config.Host, successor.host)
 	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
 	if predResp == nil {
 		log.Printf("Chord.stabilize.error.%s", err)
@@ -190,11 +189,17 @@ func (server *Server) stabilize() error {
 		ID := []byte(predResp.ID)
 		host := predResp.host
 
-		// verifies server's immediate successor
-		// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
-		// should be updated to the one contained in the response
-		if between(server.node.ID, successor.ID, ID) {
+		if server.config.Host == successor.host {
+			// if this node is same as its successor, then we update the successor to be the predecessor,
+			// since there are at most 2 nodes in the ring now
 			server.node.SetSuccessor(NewRemoteNode(ID, host))
+
+		} else if between(server.node.ID, successor.ID, ID) {
+			// verifies server's immediate successor
+			// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
+			// should be updated to the one contained in the response
+			server.node.SetSuccessor(NewRemoteNode(ID, host))
+
 		}
 	}
 
@@ -233,11 +238,11 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 	resp := &FindSuccessorResponse{}
 
 	// if this local node does not have successor yet, compare local server's bytes id with incoming id
-	if localNode.Successor() == nil {
+	/*if localNode.Successor() == nil {
 		resp.ID = string(localNode.ID)
 		resp.host = server.config.Host
 		return resp, nil
-	}
+	}*/
 	successor := localNode.Successor()
 	if between(localNode.ID, successor.ID, id) {
 		resp.ID = string(successor.ID)
@@ -277,6 +282,16 @@ func (server *Server) HandleGetPredecessorRequest() (*GetPredecessorResponse, er
 		return nil, fmt.Errorf("this node has no predecessor")
 	}
 	resp := NewGetPredecessorResponse(pred.ID, pred.host)
+	return resp, nil
+}
+
+// HandleGetSuccessorRequest returns the successor of this local node
+func (server *Server) HandleGetSuccessorRequest() (*FindSuccessorResponse, error) {
+	succ := server.node.Successor()
+	resp := &FindSuccessorResponse{}
+	resp.ID = string(succ.ID)
+	resp.host = succ.host
+
 	return resp, nil
 }
 
