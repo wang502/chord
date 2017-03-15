@@ -5,24 +5,61 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
+)
+
+// -------------------------------------------------------------------------
+//
+// Constants
+//
+// -------------------------------------------------------------------------
+
+const (
+	// DefaultStabilizeInterval is the interval that this server will start the stabilize process
+	DefaultStabilizeInterval = 50 * time.Millisecond
+
+	// DefaultFixFingerInterval is the interval that this server will repeat fixing its finger table
+	DefaultFixFingerInterval = 50 * time.Millisecond
+)
+
+const (
+	// Stopped denotes that Chord server is not started yet or has been stooped
+	Stopped = "stopped"
+
+	// Running denotes that Chord server is currently running
+	Running = "running"
 )
 
 // Server represents a single node in Chord protocol
 type Server struct {
-	name string
-	node *Node
+	name  string
+	state string
+	node  *Node
 	sync.RWMutex
 	config      *Config
 	transporter *Transporter
+
+	stabilizeInterval time.Duration
+	fixFingerInterval time.Duration
+
+	stopChan          chan bool
+	stabilizeStopChan chan bool
+	fixFingerStopChan chan bool
+
+	routineGroup sync.WaitGroup
 }
 
 // NewServer initializes a new local server involved in Chord protocol
 func NewServer(name string, config *Config, transporter *Transporter) *Server {
 	server := &Server{
-		name:        name,
-		node:        NewNode(config),
-		config:      config,
-		transporter: transporter,
+		name:              name,
+		state:             Stopped,
+		node:              NewNode(config),
+		config:            config,
+		transporter:       transporter,
+		stabilizeInterval: DefaultStabilizeInterval,
+		fixFingerInterval: DefaultFixFingerInterval,
+		stopChan:          make(chan bool),
 	}
 	return server
 }
@@ -38,12 +75,107 @@ func (server *Server) Join(existingHost string) error {
 
 	successorNode := NewRemoteNode([]byte(findSuccessorResp.ID), findSuccessorResp.host)
 	localNode.SetSuccessor(successorNode)
-	return server.Stabilize()
+	return server.stabilize()
 }
 
-// Stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
-func (server *Server) Stabilize() error {
-	//return nil
+// Start the Chord server
+func (server *Server) Start() error {
+	if server.Running() {
+		return fmt.Errorf("chord.Start.error.%s", server.state)
+	}
+
+	server.stopChan = make(chan bool)
+	server.SetState(Running)
+
+	server.routineGroup.Add(1)
+	go func() {
+		defer server.routineGroup.Done()
+		server.startPeriodicalStabilize()
+	}()
+
+	server.routineGroup.Add(1)
+	go func() {
+		defer server.routineGroup.Done()
+		server.startPeriodicalFixFinger()
+	}()
+
+	return nil
+}
+
+// Stop the Chord server
+func (server *Server) Stop() error {
+	if server.State() == Stopped {
+		return fmt.Errorf("chord.Stop.error.%s", server.State())
+	}
+
+	close(server.stopChan)
+
+	// make sure all goroutines are stopped
+	server.routineGroup.Wait()
+	server.SetState(Stopped)
+	return nil
+}
+
+// Running checks if Chord server is running
+func (server *Server) Running() bool {
+	server.Lock()
+	defer server.Unlock()
+	return server.state == Running
+}
+
+// startPeriodicalFixFinger starts the periodical process of fixing finger table
+func (server *Server) startPeriodicalFixFinger() {
+
+}
+
+func (server *Server) periodicalFixFinger() {
+
+}
+
+func (server *Server) fixFinger() error {
+	return nil
+}
+
+// startPeriodicalStabilize starts start the periodical stabilizing process
+func (server *Server) startPeriodicalStabilize() {
+	server.stabilizeStopChan = make(chan bool)
+	c := make(chan bool)
+	go func() {
+		server.periodicalStabilize(c)
+	}()
+	<-c
+}
+
+func (server *Server) periodicalStabilize(c chan bool) {
+	c <- true
+
+	stopChan := server.stabilizeStopChan
+	ticker := time.Tick(server.stabilizeInterval)
+
+	log.Printf("chord.PeriodicalStabilize.host: %s.interval: %s", server.config.Host, server.stabilizeInterval)
+
+	state := server.State()
+
+	for state != Stopped {
+		select {
+		case <-stopChan:
+			log.Printf("chord.PeriodicalStabilize.stop.%s", server.config.Host)
+			return
+		case <-ticker:
+			err := server.stabilize()
+			if err != nil {
+				log.Printf("chord.PeriodicalStabilize.error.%s", err)
+			}
+		}
+
+		state = server.State()
+	}
+}
+
+// stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
+func (server *Server) stabilize() error {
+	log.Printf("stabilize: %s", server.config.Host)
+
 	if server.node.Successor() == nil {
 		return fmt.Errorf("no need to stabilize.no sucessor")
 	}
@@ -76,7 +208,7 @@ func (server *Server) Stabilize() error {
 }
 
 // Notify handles the NotifyRequest sent from another server
-func (server *Server) Notify(req *NotifyRequest) (*NotifyResponse, error) {
+func (server *Server) notify(req *NotifyRequest) (*NotifyResponse, error) {
 	possiblePredID := []byte(req.ID)
 	possiblePredHost := req.host
 	currentPredecessor := server.node.Predecessor()
@@ -148,7 +280,51 @@ func (server *Server) HandleGetPredecessorRequest() (*GetPredecessorResponse, er
 	return resp, nil
 }
 
+// -------------------------------------------------------------------------
+//
+// Getter
+//
+// -------------------------------------------------------------------------
+
+// State retrieves the current state of Chord server
+func (server *Server) State() string {
+	server.Lock()
+	defer server.Unlock()
+	return server.state
+}
+
+// -------------------------------------------------------------------------
+//
+// Setter
+//
+// -------------------------------------------------------------------------
+
+// SetStabilizeInterval sets the interval of periodical stabilizing
+func (server *Server) SetStabilizeInterval(duration time.Duration) {
+	server.Lock()
+	defer server.Unlock()
+	server.stabilizeInterval = duration
+}
+
+// SetFixFingerInterval sets the interval of periodical process of fixing finger table
+func (server *Server) SetFixFingerInterval(duration time.Duration) {
+	server.Lock()
+	defer server.Unlock()
+	server.fixFingerInterval = duration
+}
+
+// SetState sets the current state of Chord server
+func (server *Server) SetState(state string) {
+	server.Lock()
+	defer server.Unlock()
+	server.state = state
+}
+
+// -------------------------------------------------------------------------
+//
 // utils
+//
+// -------------------------------------------------------------------------
 
 // Checks if a key is STRICTLY between two ID's exclusively
 func between(id1, id2, key []byte) bool {

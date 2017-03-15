@@ -20,11 +20,11 @@ import (
 func cleanup(listeners []net.Listener, wg *sync.WaitGroup) error {
 	log.Println("Cleaning up.....")
 	for _, listener := range listeners {
-		log.Printf("closing server at address %s ....", listener.Addr())
+		log.Printf("closing server at address %s ....", listener.Addr().String())
 		if err := listener.Close(); err != nil {
 			return err
 		}
-		log.Printf("closed server at address %s", listener.Addr())
+		log.Printf("closed server at address %s", listener.Addr().String())
 		wg.Done()
 	}
 	return nil
@@ -36,6 +36,7 @@ func main() {
 
 	listenersSlice := make([]net.Listener, len(ports))
 	signalChan := make(chan os.Signal, 1)
+	// notify os interrup signal
 	signal.Notify(signalChan, os.Interrupt)
 
 	var wg sync.WaitGroup
@@ -48,26 +49,26 @@ func main() {
 
 		server := &http.Server{Addr: ports[i], Handler: router}
 		listener, err := net.Listen("tcp", ports[i])
-		listenersSlice[i] = listener
-
-		log.Printf("Listening at: %s", host+ports[i])
-
 		if err != nil {
 			log.Println(err)
 			return
 		}
+
+		log.Printf("Listening at: %s", host+ports[i])
+		listenersSlice[i] = listener
 		wg.Add(1)
-		go func(port string, server *http.Server) {
+		go func(server *http.Server) {
+			// start serving
 			err := server.Serve(listener.(*net.TCPListener))
 			if err != nil {
 				log.Printf("http server error, %s", err)
 			}
-		}(ports[i], server)
+		}(server)
 	}
 
 	wg.Add(1)
 	go func() {
-		// after receive an OS interrup signal, start the cleanup
+		// after receive an OS interrup signal, start the cleanup process
 		<-signalChan
 		if err := cleanup(listenersSlice, &wg); err != nil {
 			log.Println("failed to close every server")

@@ -115,7 +115,7 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 		}
 
 		resp, err := server.FindSuccessor(req)
-		//log.Printf("succ: %s", resp.host)
+		log.Printf("host %s's successor is: %s", req.host, resp.host)
 		if resp == nil || err != nil {
 			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
 			return
@@ -137,7 +137,7 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
-		resp, err := server.Notify(req)
+		resp, err := server.notify(req)
 		if resp == nil || err != nil {
 			http.Error(w, "failed to notify", http.StatusBadRequest)
 			return
@@ -158,7 +158,7 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 			http.Error(w, "failed to return predecessor", http.StatusBadRequest)
 			return
 		}
-		//log.Printf("pred: %s", predResp)
+		log.Printf("host %s's predecessor is %s", server.config.Host, predResp.host)
 
 		if _, err := predResp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
