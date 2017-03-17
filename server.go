@@ -79,9 +79,9 @@ func (server *Server) Join(existingHost string) error {
 		return fmt.Errorf("Chord.join.error.%s", err)
 	}
 
-	if err = server.initFingerTable(existingHost); err != nil {
-		return fmt.Errorf("Chord.join.error.%s", err)
-	}
+	//if err = server.initFingerTable(existingHost); err != nil {
+	//	return fmt.Errorf("Chord.join.error.%s", err)
+	//}
 
 	return nil
 }
@@ -181,14 +181,63 @@ func (server *Server) initFingerTable(existingHost string) error {
 
 // startPeriodicalFixFinger starts the periodical process of fixing finger table
 func (server *Server) startPeriodicalFixFinger() {
-
+	c := make(chan bool)
+	go func() {
+		server.periodicalFixFinger(c)
+	}()
+	<-c
 }
 
-func (server *Server) periodicalFixFinger() {
+func (server *Server) periodicalFixFinger(c chan bool) {
+	c <- true
 
+	stopChan := server.stopChan
+	ticker := time.Tick(server.fixFingerInterval)
+
+	log.Printf("chord.PeriodicalFixFinger.host: %s.interval: %s", server.config.Host, server.fixFingerInterval)
+
+	state := server.State()
+	for state != Stopped {
+		select {
+		case <-stopChan:
+			log.Printf("chord.PeriodicalFixFinger.stop.%s", server.config.Host)
+			return
+		case <-ticker:
+			err := server.fixFinger()
+			if err != nil {
+				log.Printf("chord.PeriodicalFixFinger.stop.%s", err)
+			}
+		}
+
+		state = server.State()
+	}
 }
 
 func (server *Server) fixFinger() error {
+	hb := server.config.HashBits
+
+	node := server.node
+	finger := node.Finger()
+	node.fingerIndex = node.fingerIndex + 1
+	next := node.fingerIndex
+	if next >= hb {
+		next = 0
+	}
+
+	if finger[next] == nil {
+		finger[next] = &FingerEntry{
+			start: powerOffset(node.ID, next, hb),
+		}
+	}
+	succReq := NewFindSuccessorRequest(finger[next].start, "")
+	succResp, err := server.FindSuccessor(succReq)
+	if err != nil {
+		return err
+	}
+
+	finger[next].node = []byte(succResp.ID)
+	finger[next].host = succResp.host
+
 	return nil
 }
 
@@ -294,7 +343,7 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 	resp := &FindSuccessorResponse{}
 
 	successor := localNode.Successor()
-	if between(localNode.ID, successor.ID, id) {
+	if betweenRightIncl(localNode.ID, successor.ID, id) {
 		resp.ID = string(successor.ID)
 		resp.host = successor.host
 		return resp, nil
@@ -404,7 +453,7 @@ func between(id1, id2, key []byte) bool {
 		bytes.Compare(id2, key) == 1
 }
 
-// Checks if a key is STRICTLY between two IDs, left inclusive
+// Checks if a key is between two IDs, left inclusive
 func betweenLeftIncl(id1, id2, key []byte) bool {
 	// Check for ring wrap around
 	if bytes.Compare(id1, id2) == 1 {
@@ -415,6 +464,19 @@ func betweenLeftIncl(id1, id2, key []byte) bool {
 	// Handle the normal case
 	return bytes.Compare(id1, key) <= 0 &&
 		bytes.Compare(id2, key) == 1
+}
+
+// Checks if a key is between two IDs, right inclusive
+func betweenRightIncl(id1, id2, key []byte) bool {
+	// Check for ring wrap around
+	if bytes.Compare(id1, id2) == 1 {
+		return bytes.Compare(id1, key) == -1 ||
+			bytes.Compare(id2, key) >= 0
+	}
+
+	// Handle the normal case
+	return bytes.Compare(id1, key) == -1 &&
+		bytes.Compare(id2, key) >= 0
 }
 
 // Computes the offset by (n + 2^exp) % (2^mod)
