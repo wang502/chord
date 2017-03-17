@@ -22,6 +22,9 @@ type Transporter struct {
 	setPredecessorPath string
 	joinPath           string
 	startPath          string
+	stopPath           string
+
+	getFingerTablePath string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -32,22 +35,32 @@ func NewTransporter() *Transporter {
 		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
 		getSuccessorPath:   "/getSuccessor",
-		joinPath:           "/join", // this path is for testing purpose
+		joinPath:           "/join",
 		startPath:          "/start",
+		stopPath:           "/stop",
+
+		getFingerTablePath: "/getFingerTable",
 	}
 }
 
 // Install applies the chord route to an http router
 func (t *Transporter) Install(server *Server, mux *mux.Router) {
-	mux.HandleFunc(t.notifyPath, t.NotifyHandler(server))
-	mux.HandleFunc(t.findSuccessorPath, t.FindSuccessorHandler(server))
-	mux.HandleFunc(t.getPredecessorPath, t.GetPredecessorHandler(server))
-	mux.HandleFunc(t.getSuccessorPath, t.GetSuccessorHandler(server))
-	mux.HandleFunc(t.joinPath, t.JoinHandler(server)).Methods("POST")
-	mux.HandleFunc(t.startPath, t.StartHandler(server)).Methods("POST")
+	mux.HandleFunc(t.notifyPath, t.notifyHandler(server))
+	mux.HandleFunc(t.findSuccessorPath, t.findSuccessorHandler(server))
+	mux.HandleFunc(t.getPredecessorPath, t.getPredecessorHandler(server))
+	mux.HandleFunc(t.getSuccessorPath, t.getSuccessorHandler(server))
+	mux.HandleFunc(t.joinPath, t.joinHandler(server)).Methods("POST")
+	mux.HandleFunc(t.startPath, t.startHandler(server)).Methods("POST")
+	mux.HandleFunc(t.stopPath, t.stopHandler(server)).Methods("POST")
+
+	mux.HandleFunc(t.getFingerTablePath, t.getFingerTableHandler(server))
 }
 
-// Sending
+// -------------------------------------------------------------------------
+//
+// Sending request
+//
+// -------------------------------------------------------------------------
 
 // SendFindSuccessorRequest sends outgoing find successor request to other Node server, a successor response will be returned
 func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
@@ -109,10 +122,14 @@ func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*G
 	return predResp, nil
 }
 
-// Receiving
+//	-------------------------------------------------------------------------
+//
+//	handler functions
+//
+//	-------------------------------------------------------------------------
 
-// FindSuccessorHandler handles incoming request to find successor of the given key
-func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
+// findSuccessorHandler handles incoming request to find successor of the given key
+func (t *Transporter) findSuccessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &FindSuccessorRequest{}
 		if _, err := req.Decode(r.Body); err != nil {
@@ -134,8 +151,8 @@ func (t *Transporter) FindSuccessorHandler(server *Server) http.HandlerFunc {
 	}
 }
 
-// NotifyHandler handles incoming notify about possibe new predecessor
-func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
+// notifyHandler handles incoming notify about possibe new predecessor
+func (t *Transporter) notifyHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		req := &NotifyRequest{}
 		if _, err := req.Decode(r.Body); err != nil {
@@ -156,10 +173,10 @@ func (t *Transporter) NotifyHandler(server *Server) http.HandlerFunc {
 	}
 }
 
-// GetPredecessorHandler handles incoming request to return this local server's predecessor
-func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
+// getPredecessorHandler handles incoming request to return this local server's predecessor
+func (t *Transporter) getPredecessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		predResp, err := server.HandleGetPredecessorRequest()
+		predResp, err := server.handleGetPredecessorRequest()
 		if predResp == nil || err != nil {
 			http.Error(w, "failed to return predecessor", http.StatusBadRequest)
 			return
@@ -173,10 +190,10 @@ func (t *Transporter) GetPredecessorHandler(server *Server) http.HandlerFunc {
 	}
 }
 
-// GetSuccessorHandler handles the incoming request to return this node's successor
-func (t *Transporter) GetSuccessorHandler(server *Server) http.HandlerFunc {
+// getSuccessorHandler handles the incoming request to return this node's successor
+func (t *Transporter) getSuccessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		succResp, err := server.HandleGetSuccessorRequest()
+		succResp, err := server.handleGetSuccessorRequest()
 		if err != nil {
 			http.Error(w, "failed to return successor", http.StatusBadRequest)
 			return
@@ -191,9 +208,9 @@ func (t *Transporter) GetSuccessorHandler(server *Server) http.HandlerFunc {
 	}
 }
 
-// JoinHandler handles the post request for this server to join an existing Chord ring
+// joinHandler handles the post request for this server to join an existing Chord ring
 // the url pattern is '/join?host='
-func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
+func (t *Transporter) joinHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		host := r.URL.Query().Get("host")
 		log.Println(host)
@@ -207,14 +224,36 @@ func (t *Transporter) JoinHandler(server *Server) http.HandlerFunc {
 	}
 }
 
-// StartHandler handles the incoming request to start this Chord server
-func (t *Transporter) StartHandler(server *Server) http.HandlerFunc {
+// startHandler handles the incoming request to start this Chord server
+func (t *Transporter) startHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := server.Start()
 		if err != nil {
-			fmt.Fprintf(w, "failed to start server %s", server.config.Host)
+			fmt.Fprintf(w, "error to start server %s", server.config.Host)
 		} else {
 			fmt.Fprintf(w, "success to start server %s", server.config.Host)
+		}
+	}
+}
+
+// stopHandler handles incoming request to stop the Chord server
+func (t *Transporter) stopHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := server.Stop()
+		if err != nil {
+			fmt.Fprintf(w, "error to stop server %s", server.config.Host)
+		} else {
+			fmt.Fprintf(w, "success to stop server %s", server.config.Host)
+		}
+	}
+}
+
+// getFingerTableHandler handles incoming request to log entries in finger table
+func (t *Transporter) getFingerTableHandler(server *Server) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fingers := server.node.Finger()
+		for i := 0; i < server.config.HashBits; i++ {
+			log.Printf("host %s's finger at index %d: %s", server.config.Host, i, fingers[i])
 		}
 	}
 }

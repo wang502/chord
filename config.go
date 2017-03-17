@@ -38,7 +38,7 @@ func DefaultConfig(host string) *Config {
 	return &Config{
 		Host:          host,
 		HashFunc:      sha1.New(),
-		HashBits:      160,
+		HashBits:      3,
 		NumNodes:      8,
 		NumSuccessors: 8,
 	}

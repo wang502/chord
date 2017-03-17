@@ -1,6 +1,7 @@
 package chord
 
 import (
+	"math/big"
 	"sync"
 )
 
@@ -8,7 +9,7 @@ import (
 type Node struct {
 	ID          []byte
 	successor   *RemoteNode
-	finger      []*RemoteNode
+	finger      []*FingerEntry
 	predecessor *RemoteNode
 	fingerIndex int
 	sync.RWMutex
@@ -25,7 +26,7 @@ func NewNode(config *Config) *Node {
 	return &Node{
 		ID:          generateID(config),
 		successor:   defaultSuccessor(config), // the successor is the node itself at the beginning
-		finger:      make([]*RemoteNode, config.HashBits),
+		finger:      make([]*FingerEntry, config.HashBits),
 		predecessor: nil,
 		fingerIndex: -1,
 	}
@@ -43,7 +44,21 @@ func NewRemoteNode(id []byte, host string) *RemoteNode {
 func generateID(config *Config) []byte {
 	hash := config.HashFunc
 	hash.Write([]byte(config.Host))
-	return hash.Sum(nil)
+	b := hash.Sum(nil)
+
+	idInt := big.Int{}
+	idInt.SetBytes(b)
+
+	// Get the ceiling
+	two := big.NewInt(2)
+	ceil := big.Int{}
+	ceil.Exp(two, big.NewInt(int64(config.HashBits)), nil)
+
+	// Apply the mod
+	idInt.Mod(&idInt, &ceil)
+
+	// Add together
+	return idInt.Bytes()
 }
 
 /*
@@ -63,7 +78,7 @@ func (n *Node) Successor() *RemoteNode {
 }
 
 // Finger returns finger table inside the Node
-func (n *Node) Finger() []*RemoteNode {
+func (n *Node) Finger() []*FingerEntry {
 	n.Lock()
 	defer n.Unlock()
 	return n.finger
@@ -103,4 +118,24 @@ func (n *Node) SetPredecessor(pred *RemoteNode) {
 
 func defaultSuccessor(config *Config) *RemoteNode {
 	return NewRemoteNode(generateID(config), config.Host)
+}
+
+func defaultFingerEntry(id []byte, exp int, config *Config) *FingerEntry {
+	return &FingerEntry{
+		start: powerOffset(id, exp, config.HashBits),
+		node:  id,
+		host:  config.Host,
+	}
+}
+
+func defaultFingerTable(config *Config) []*FingerEntry {
+	hb := config.HashBits
+	id := generateID(config)
+	fingerTable := make([]*FingerEntry, hb)
+
+	for i := 0; i < hb; i++ {
+		fingerTable[i] = defaultFingerEntry(id, i, config)
+	}
+
+	return fingerTable
 }

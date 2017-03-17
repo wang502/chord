@@ -28,7 +28,7 @@ func TestFindSuccessorHandler(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 
-	handler := http.HandlerFunc(httpTransporter.FindSuccessorHandler(server))
+	handler := http.HandlerFunc(httpTransporter.findSuccessorHandler(server))
 	handler.ServeHTTP(rr, req)
 
 	findSuccessorResp := &FindSuccessorResponse{}

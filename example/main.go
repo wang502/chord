@@ -32,7 +32,7 @@ func cleanup(listeners []net.Listener, wg *sync.WaitGroup) error {
 
 func main() {
 	host := "http://localhost"
-	ports := []string{":2000", ":2001", ":3000", ":4000", ":5000", ":6000", ":7000"}
+	ports := []string{":2000", ":2001", ":3000", ":4000", ":5000", ":6000", ":7000", ":8000", ":9000", ":10000", ":11000"}
 
 	listenersSlice := make([]net.Listener, len(ports))
 	signalChan := make(chan os.Signal, 1)

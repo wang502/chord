@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/big"
 	"sync"
 	"time"
 )
@@ -42,9 +43,7 @@ type Server struct {
 	stabilizeInterval time.Duration
 	fixFingerInterval time.Duration
 
-	stopChan          chan bool
-	stabilizeStopChan chan bool
-	fixFingerStopChan chan bool
+	stopChan chan bool
 
 	routineGroup sync.WaitGroup
 }
@@ -75,7 +74,21 @@ func (server *Server) Join(existingHost string) error {
 
 	successorNode := NewRemoteNode([]byte(findSuccessorResp.ID), findSuccessorResp.host)
 	localNode.SetSuccessor(successorNode)
-	return server.stabilize()
+
+	if err = server.stabilize(); err != nil {
+		return fmt.Errorf("Chord.join.error.%s", err)
+	}
+
+	if err = server.initFingerTable(existingHost); err != nil {
+		return fmt.Errorf("Chord.join.error.%s", err)
+	}
+
+	return nil
+}
+
+// Leave the chord ring
+func (server *Server) Leave() error {
+	return nil
 }
 
 // Start the Chord server
@@ -104,6 +117,7 @@ func (server *Server) Start() error {
 
 // Stop the Chord server
 func (server *Server) Stop() error {
+	log.Printf("stopping Chord server %s......", server.config.Host)
 	if server.State() == Stopped {
 		return fmt.Errorf("chord.Stop.error.%s", server.State())
 	}
@@ -113,6 +127,7 @@ func (server *Server) Stop() error {
 	// make sure all goroutines are stopped
 	server.routineGroup.Wait()
 	server.SetState(Stopped)
+	log.Printf("stopped Chord server %s", server.config.Host)
 	return nil
 }
 
@@ -121,6 +136,47 @@ func (server *Server) Running() bool {
 	server.Lock()
 	defer server.Unlock()
 	return server.state == Running
+}
+
+// -------------------------------------------------------------------------
+//
+// Finger table
+//
+// -------------------------------------------------------------------------
+
+func (server *Server) initFingerTable(existingHost string) error {
+	hb := server.config.HashBits
+
+	succ := server.node.Successor()
+	firstFinger := &FingerEntry{
+		start: powerOffset(server.node.ID, 0, hb),
+		node:  succ.ID,
+		host:  succ.host,
+	}
+	fingers := server.node.Finger()
+	fingers[0] = firstFinger
+
+	for i := 1; i < hb; i++ {
+		entry := &FingerEntry{
+			start: powerOffset(server.node.ID, i, hb),
+		}
+		if betweenLeftIncl(server.node.ID, fingers[i-1].node, entry.start) {
+			entry.node = fingers[i-1].node
+			entry.host = fingers[i-1].host
+		} else {
+			req := NewFindSuccessorRequest(entry.start, existingHost)
+			succResp, err := server.transporter.SendFindSuccessorRequest(server, req)
+			if err != nil {
+				return fmt.Errorf("chord.initFingerTable.error.%s", err)
+			}
+			entry.node = []byte(succResp.ID)
+			entry.host = succResp.host
+		}
+
+		fingers[i] = entry
+	}
+
+	return nil
 }
 
 // startPeriodicalFixFinger starts the periodical process of fixing finger table
@@ -138,7 +194,6 @@ func (server *Server) fixFinger() error {
 
 // startPeriodicalStabilize starts start the periodical stabilizing process
 func (server *Server) startPeriodicalStabilize() {
-	server.stabilizeStopChan = make(chan bool)
 	c := make(chan bool)
 	go func() {
 		server.periodicalStabilize(c)
@@ -149,7 +204,7 @@ func (server *Server) startPeriodicalStabilize() {
 func (server *Server) periodicalStabilize(c chan bool) {
 	c <- true
 
-	stopChan := server.stabilizeStopChan
+	stopChan := server.stopChan
 	ticker := time.Tick(server.stabilizeInterval)
 
 	log.Printf("chord.PeriodicalStabilize.host: %s.interval: %s", server.config.Host, server.stabilizeInterval)
@@ -179,7 +234,7 @@ func (server *Server) stabilize() error {
 	}
 
 	successor := server.node.Successor()
-	log.Printf("stabilize: host %s's successor is %s", server.config.Host, successor.host)
+	log.Printf("stabilizing: host %s's successor is %s", server.config.Host, successor.host)
 	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
 	if predResp == nil {
 		log.Printf("Chord.stabilize.error.%s", err)
@@ -198,6 +253,7 @@ func (server *Server) stabilize() error {
 			// verifies server's immediate successor
 			// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
 			// should be updated to the one contained in the response
+			log.Printf("host %s | predResp.id: %s, predResp.host: %s", server.config.Host, predResp.ID, predResp.host)
 			server.node.SetSuccessor(NewRemoteNode(ID, host))
 
 		}
@@ -237,12 +293,6 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 	localNode := server.node
 	resp := &FindSuccessorResponse{}
 
-	// if this local node does not have successor yet, compare local server's bytes id with incoming id
-	/*if localNode.Successor() == nil {
-		resp.ID = string(localNode.ID)
-		resp.host = server.config.Host
-		return resp, nil
-	}*/
 	successor := localNode.Successor()
 	if between(localNode.ID, successor.ID, id) {
 		resp.ID = string(successor.ID)
@@ -266,8 +316,8 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 	finger := localNode.Finger()
 	for i := server.config.HashBits - 1; i >= 0; i-- {
 		if finger[i] != nil {
-			if between(localNode.ID, id, finger[i].ID) {
-				return finger[i]
+			if between(localNode.ID, id, finger[i].node) {
+				return &RemoteNode{ID: finger[i].node, host: finger[i].host}
 			}
 		}
 	}
@@ -276,7 +326,7 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 }
 
 // HandleGetPredecessorRequest returns the predecessor of this local node
-func (server *Server) HandleGetPredecessorRequest() (*GetPredecessorResponse, error) {
+func (server *Server) handleGetPredecessorRequest() (*GetPredecessorResponse, error) {
 	pred := server.node.Predecessor()
 	if pred == nil {
 		return nil, fmt.Errorf("this node has no predecessor")
@@ -286,7 +336,7 @@ func (server *Server) HandleGetPredecessorRequest() (*GetPredecessorResponse, er
 }
 
 // HandleGetSuccessorRequest returns the successor of this local node
-func (server *Server) HandleGetSuccessorRequest() (*FindSuccessorResponse, error) {
+func (server *Server) handleGetSuccessorRequest() (*FindSuccessorResponse, error) {
 	succ := server.node.Successor()
 	resp := &FindSuccessorResponse{}
 	resp.ID = string(succ.ID)
@@ -341,7 +391,7 @@ func (server *Server) SetState(state string) {
 //
 // -------------------------------------------------------------------------
 
-// Checks if a key is STRICTLY between two ID's exclusively
+// Checks if a key is STRICTLY between two IDs exclusively
 func between(id1, id2, key []byte) bool {
 	// Check for ring wrap around
 	if bytes.Compare(id1, id2) == 1 {
@@ -352,4 +402,47 @@ func between(id1, id2, key []byte) bool {
 	// Handle the normal case
 	return bytes.Compare(id1, key) == -1 &&
 		bytes.Compare(id2, key) == 1
+}
+
+// Checks if a key is STRICTLY between two IDs, left inclusive
+func betweenLeftIncl(id1, id2, key []byte) bool {
+	// Check for ring wrap around
+	if bytes.Compare(id1, id2) == 1 {
+		return bytes.Compare(id1, key) <= 0 ||
+			bytes.Compare(id2, key) == 1
+	}
+
+	// Handle the normal case
+	return bytes.Compare(id1, key) <= 0 &&
+		bytes.Compare(id2, key) == 1
+}
+
+// Computes the offset by (n + 2^exp) % (2^mod)
+func powerOffset(id []byte, exp int, mod int) []byte {
+	// Copy the existing slice
+	off := make([]byte, len(id))
+	copy(off, id)
+
+	// Convert the ID to a bigint
+	idInt := big.Int{}
+	idInt.SetBytes(id)
+
+	// Get the offset
+	two := big.NewInt(2)
+	offset := big.Int{}
+	offset.Exp(two, big.NewInt(int64(exp)), nil)
+
+	// Sum
+	sum := big.Int{}
+	sum.Add(&idInt, &offset)
+
+	// Get the ceiling
+	ceil := big.Int{}
+	ceil.Exp(two, big.NewInt(int64(mod)), nil)
+
+	// Apply the mod
+	idInt.Mod(&sum, &ceil)
+
+	// Add together
+	return idInt.Bytes()
 }
