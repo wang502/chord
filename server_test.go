@@ -141,8 +141,21 @@ func TestStartII(t *testing.T) {
 	_, err = client.Post("http://localhost:10000/join?host=http://localhost:8000", "chord.join", nil)
 	_, err = client.Post("http://localhost:10000/start", "chord.start", nil)
 
-	time.Sleep(8 * DefaultStabilizeInterval)
+	time.Sleep(5 * DefaultStabilizeInterval)
 
+	/*_, err = client.Get("http://localhost:8000/getFingerTable")
+	_, err = client.Get("http://localhost:10000/getFingerTable")
+	_, err = client.Get("http://localhost:9000/getFingerTable")*/
+
+	_, err = client.Post("http://localhost:9500/join?host=http://localhost:9000", "chord.join", nil)
+	if err != nil {
+		t.Errorf("failed to join, %s", err)
+	}
+	_, err = client.Post("http://localhost:9500/start", "chord.start", nil)
+
+	time.Sleep(15 * DefaultStabilizeInterval)
+
+	_, err = client.Get("http://localhost:9500/getFingerTable")
 	_, err = client.Get("http://localhost:8000/getFingerTable")
 	_, err = client.Get("http://localhost:10000/getFingerTable")
 	_, err = client.Get("http://localhost:9000/getFingerTable")
@@ -150,4 +163,5 @@ func TestStartII(t *testing.T) {
 	_, err = client.Post("http://localhost:8000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:9000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:10000/stop", "chord.stop", nil)
+	_, err = client.Post("http://localhost:9500/stop", "chord.stop", nil)
 }

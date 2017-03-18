@@ -142,45 +142,12 @@ func (server *Server) Running() bool {
 //
 // -------------------------------------------------------------------------
 
-func (server *Server) initFingerTable(existingHost string) error {
-	hb := server.config.HashBits
-
-	succ := server.node.Successor()
-	firstFinger := &FingerEntry{
-		start: powerOffset(server.node.ID, 0, hb),
-		node:  succ.ID,
-		host:  succ.host,
-	}
-	fingers := server.node.Finger()
-	fingers[0] = firstFinger
-
-	for i := 1; i < hb; i++ {
-		entry := &FingerEntry{
-			start: powerOffset(server.node.ID, i, hb),
-		}
-		if betweenLeftIncl(server.node.ID, fingers[i-1].node, entry.start) {
-			entry.node = fingers[i-1].node
-			entry.host = fingers[i-1].host
-		} else {
-			req := NewFindSuccessorRequest(entry.start, existingHost)
-			succResp, err := server.transporter.SendFindSuccessorRequest(server, req)
-			if err != nil {
-				return fmt.Errorf("chord.initFingerTable.error.%s", err)
-			}
-			entry.node = []byte(succResp.ID)
-			entry.host = succResp.host
-		}
-
-		fingers[i] = entry
-	}
-
-	return nil
-}
-
 // startPeriodicalFixFinger starts the periodical process of fixing finger table
 func (server *Server) startPeriodicalFixFinger() {
 	c := make(chan bool)
+	server.routineGroup.Add(1)
 	go func() {
+		defer server.routineGroup.Done()
 		server.periodicalFixFinger(c)
 	}()
 	<-c
@@ -203,7 +170,7 @@ func (server *Server) periodicalFixFinger(c chan bool) {
 		case <-ticker:
 			err := server.fixFinger()
 			if err != nil {
-				log.Printf("[ERROR]chord.PeriodicalFixFinger.error.%s", err)
+				log.Printf("[ERROR]%s.chord.PeriodicalFixFinger.error.%s", server.config.Host, err)
 			}
 		}
 
@@ -246,7 +213,9 @@ func (server *Server) fixFinger() error {
 // startPeriodicalStabilize starts start the periodical stabilizing process
 func (server *Server) startPeriodicalStabilize() {
 	c := make(chan bool)
+	server.routineGroup.Add(1)
 	go func() {
+		defer server.routineGroup.Done()
 		server.periodicalStabilize(c)
 	}()
 	<-c
@@ -270,7 +239,7 @@ func (server *Server) periodicalStabilize(c chan bool) {
 		case <-ticker:
 			err := server.stabilize()
 			if err != nil {
-				log.Printf("chord.PeriodicalStabilize.error.%s", err)
+				log.Printf("[ERROR]%s.chord.PeriodicalStabilize.error.%s", server.config.Host, err)
 			}
 		}
 
@@ -314,6 +283,7 @@ func (server *Server) stabilize() error {
 	if err != nil {
 		return fmt.Errorf("Chord.stabilize.notify.%s", err)
 	}
+	log.Printf("[Stabilize]%s(%x)'s successor is %s(%x)", server.config.Host, server.node.ID, server.node.Successor().host, server.node.Successor().ID)
 
 	return nil
 }
@@ -366,8 +336,10 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 	finger := localNode.Finger()
 	for i := server.config.HashBits - 1; i >= 0; i-- {
 		if finger[i] != nil {
-			if between(localNode.ID, id, finger[i].node) {
-				return &RemoteNode{ID: finger[i].node, host: finger[i].host}
+			if finger[i].node != nil && finger[i].host != "" {
+				if between(localNode.ID, id, finger[i].node) {
+					return &RemoteNode{ID: finger[i].node, host: finger[i].host}
+				}
 			}
 		}
 	}

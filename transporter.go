@@ -8,6 +8,8 @@ import (
 
 	"fmt"
 
+	"time"
+
 	"github.com/gorilla/mux"
 )
 
@@ -30,7 +32,7 @@ type Transporter struct {
 // NewTransporter initilizes a new Transporter object
 func NewTransporter() *Transporter {
 	return &Transporter{
-		httpClient:         http.Client{},
+		httpClient:         http.Client{Timeout: time.Second},
 		findSuccessorPath:  "/findSuccessor",
 		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
