@@ -23,13 +23,16 @@ type RemoteNode struct {
 
 // NewNode initializes a Node server involved in Chord protocol
 func NewNode(config *Config) *Node {
-	return &Node{
-		ID:          generateID(config),
-		successor:   defaultSuccessor(config), // the successor is the node itself at the beginning
+	node := &Node{
+		ID: generateID(config),
+		//successor:   defaultSuccessor(config), // the successor is the node itself at the beginning
 		finger:      make([]*FingerEntry, config.HashBits),
 		predecessor: nil,
 		fingerIndex: -1,
 	}
+	node.successor = defaultSuccessor(node.ID, config.Host)
+
+	return node
 }
 
 // NewRemoteNode initializes a remote Node server involved in Chord protocol
@@ -116,8 +119,8 @@ func (n *Node) SetPredecessor(pred *RemoteNode) {
 	n.predecessor = pred
 }
 
-func defaultSuccessor(config *Config) *RemoteNode {
-	return NewRemoteNode(generateID(config), config.Host)
+func defaultSuccessor(id []byte, host string) *RemoteNode {
+	return NewRemoteNode(id, host)
 }
 
 func defaultFingerEntry(id []byte, exp int, config *Config) *FingerEntry {

@@ -42,7 +42,7 @@ func TestStartI(t *testing.T) {
 	_, err = client.Post("http://localhost:5000/start", "chord.start", nil)
 	_, err = client.Post("http://localhost:6000/start", "chord.start", nil)
 
-	time.Sleep(10 * DefaultStabilizeInterval)
+	time.Sleep(5 * DefaultStabilizeInterval)
 
 	resp1, _ := client.Get("http://localhost:6000/getPredecessor")
 	predResp1 := &GetPredecessorResponse{}
@@ -93,7 +93,7 @@ func TestStartI(t *testing.T) {
 	_, err = client.Post("http://localhost:7000/join?host=http://localhost:5000", "chord.join", nil)
 	_, err = client.Post("http://localhost:7000/start", "chord.start", nil)
 
-	time.Sleep(10 * DefaultStabilizeInterval)
+	time.Sleep(5 * DefaultStabilizeInterval)
 
 	resp5, _ := client.Get("http://localhost:7000/getPredecessor")
 	predResp5 := &GetPredecessorResponse{}
@@ -114,6 +114,13 @@ func TestStartI(t *testing.T) {
 	if predResp6.host != "http://localhost:6000" {
 		t.Errorf("wrong predecessor returned")
 	}
+
+	time.Sleep(5 * DefaultStabilizeInterval)
+
+	_, err = client.Get("http://localhost:5000/getFingerTable")
+	_, err = client.Get("http://localhost:6000/getFingerTable")
+	_, err = client.Get("http://localhost:7000/getFingerTable")
+
 	_, err = client.Post("http://localhost:5000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:6000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:7000/stop", "chord.stop", nil)
@@ -131,19 +138,16 @@ func TestStartII(t *testing.T) {
 	_, err = client.Post("http://localhost:9000/start", "chord.start", nil)
 	_, err = client.Post("http://localhost:8000/start", "chord.start", nil)
 
-	_, err = client.Post("http://localhost:10000/join?host=http://localhost:9000", "chord.join", nil)
+	_, err = client.Post("http://localhost:10000/join?host=http://localhost:8000", "chord.join", nil)
 	_, err = client.Post("http://localhost:10000/start", "chord.start", nil)
-
-	//_, err = client.Post("http://localhost:11000/join?host=http://localhost:10000", "chord.join", nil)
-	//_, err = client.Post("http://localhost:11000/start", "chord.start", nil)
 
 	time.Sleep(8 * DefaultStabilizeInterval)
 
-	_, err = client.Get("http://localhost:9000/getFingerTable")
+	_, err = client.Get("http://localhost:8000/getFingerTable")
 	_, err = client.Get("http://localhost:10000/getFingerTable")
+	_, err = client.Get("http://localhost:9000/getFingerTable")
 
 	_, err = client.Post("http://localhost:8000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:9000/stop", "chord.stop", nil)
 	_, err = client.Post("http://localhost:10000/stop", "chord.stop", nil)
-	//_, err = client.Post("http://localhost:11000/stop", "chord.stop", nil)
 }

@@ -138,12 +138,12 @@ func (t *Transporter) findSuccessorHandler(server *Server) http.HandlerFunc {
 		}
 
 		resp, err := server.FindSuccessor(req)
-		log.Printf("host %s's successor is: %s", req.host, resp.host)
 		if resp == nil || err != nil {
 			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
 			return
 		}
 
+		log.Printf("host %s's successor is: %s", req.host, resp.host)
 		if _, err := resp.Encode(w); err != nil {
 			http.Error(w, "", http.StatusBadRequest)
 			return

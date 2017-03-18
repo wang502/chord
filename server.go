@@ -1,10 +1,8 @@
 package chord
 
 import (
-	"bytes"
 	"fmt"
 	"log"
-	"math/big"
 	"sync"
 	"time"
 )
@@ -105,13 +103,13 @@ func (server *Server) Start() error {
 		defer server.routineGroup.Done()
 		server.startPeriodicalStabilize()
 	}()
-	/*
-		server.routineGroup.Add(1)
-		go func() {
-			defer server.routineGroup.Done()
-			server.startPeriodicalFixFinger()
-		}()
-	*/
+
+	server.routineGroup.Add(1)
+	go func() {
+		defer server.routineGroup.Done()
+		server.startPeriodicalFixFinger()
+	}()
+
 	return nil
 }
 
@@ -205,7 +203,7 @@ func (server *Server) periodicalFixFinger(c chan bool) {
 		case <-ticker:
 			err := server.fixFinger()
 			if err != nil {
-				log.Printf("chord.PeriodicalFixFinger.stop.%s", err)
+				log.Printf("[ERROR]chord.PeriodicalFixFinger.error.%s", err)
 			}
 		}
 
@@ -221,6 +219,7 @@ func (server *Server) fixFinger() error {
 	node.fingerIndex = node.fingerIndex + 1
 	next := node.fingerIndex
 	if next >= hb {
+		node.fingerIndex = 0
 		next = 0
 	}
 
@@ -237,6 +236,9 @@ func (server *Server) fixFinger() error {
 
 	finger[next].node = []byte(succResp.ID)
 	finger[next].host = succResp.host
+
+	//log.Printf("[DEBUG]%s's successor is %s", server.config.Host, server.node.Successor().host)
+	log.Printf("[Fix Finger]%s's finger entry at %d is %s", server.config.Host, next, succResp.host)
 
 	return nil
 }
@@ -283,12 +285,11 @@ func (server *Server) stabilize() error {
 	}
 
 	successor := server.node.Successor()
-	log.Printf("stabilizing: host %s's successor is %s", server.config.Host, successor.host)
 	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
 	if predResp == nil {
-		log.Printf("Chord.stabilize.error.%s", err)
+		log.Printf("[ERROR]Chord.stabilize.error.%s", err)
 	} else if err != nil {
-		return fmt.Errorf("Chord.stabilize.error.%s", err)
+		return fmt.Errorf("[ERROR]Chord.stabilize.error.%s", err)
 	} else {
 		ID := []byte(predResp.ID)
 		host := predResp.host
@@ -302,7 +303,7 @@ func (server *Server) stabilize() error {
 			// verifies server's immediate successor
 			// if the successor's predecessor has an ID bigger than this server, then it means this server's immediate successor
 			// should be updated to the one contained in the response
-			log.Printf("host %s | predResp.id: %s, predResp.host: %s", server.config.Host, predResp.ID, predResp.host)
+
 			server.node.SetSuccessor(NewRemoteNode(ID, host))
 
 		}
@@ -432,79 +433,4 @@ func (server *Server) SetState(state string) {
 	server.Lock()
 	defer server.Unlock()
 	server.state = state
-}
-
-// -------------------------------------------------------------------------
-//
-// utils
-//
-// -------------------------------------------------------------------------
-
-// Checks if a key is STRICTLY between two IDs exclusively
-func between(id1, id2, key []byte) bool {
-	// Check for ring wrap around
-	if bytes.Compare(id1, id2) == 1 {
-		return bytes.Compare(id1, key) == -1 ||
-			bytes.Compare(id2, key) == 1
-	}
-
-	// Handle the normal case
-	return bytes.Compare(id1, key) == -1 &&
-		bytes.Compare(id2, key) == 1
-}
-
-// Checks if a key is between two IDs, left inclusive
-func betweenLeftIncl(id1, id2, key []byte) bool {
-	// Check for ring wrap around
-	if bytes.Compare(id1, id2) == 1 {
-		return bytes.Compare(id1, key) <= 0 ||
-			bytes.Compare(id2, key) == 1
-	}
-
-	// Handle the normal case
-	return bytes.Compare(id1, key) <= 0 &&
-		bytes.Compare(id2, key) == 1
-}
-
-// Checks if a key is between two IDs, right inclusive
-func betweenRightIncl(id1, id2, key []byte) bool {
-	// Check for ring wrap around
-	if bytes.Compare(id1, id2) == 1 {
-		return bytes.Compare(id1, key) == -1 ||
-			bytes.Compare(id2, key) >= 0
-	}
-
-	// Handle the normal case
-	return bytes.Compare(id1, key) == -1 &&
-		bytes.Compare(id2, key) >= 0
-}
-
-// Computes the offset by (n + 2^exp) % (2^mod)
-func powerOffset(id []byte, exp int, mod int) []byte {
-	// Copy the existing slice
-	off := make([]byte, len(id))
-	copy(off, id)
-
-	// Convert the ID to a bigint
-	idInt := big.Int{}
-	idInt.SetBytes(id)
-
-	// Get the offset
-	two := big.NewInt(2)
-	offset := big.Int{}
-	offset.Exp(two, big.NewInt(int64(exp)), nil)
-
-	// Sum
-	sum := big.Int{}
-	sum.Add(&idInt, &offset)
-
-	// Get the ceiling
-	ceil := big.Int{}
-	ceil.Exp(two, big.NewInt(int64(mod)), nil)
-
-	// Apply the mod
-	idInt.Mod(&sum, &ceil)
-
-	// Add together
-	return idInt.Bytes()
 }
