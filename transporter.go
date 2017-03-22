@@ -71,13 +71,14 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 	}
 
 	url := req.host + t.findSuccessorPath
-	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
+	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
 		return nil, err
 	}
+	defer httpResp.Body.Close()
 
 	successorResp := &FindSuccessorResponse{}
-	if _, err = successorResp.Decode(resp.Body); err != nil {
+	if _, err = successorResp.Decode(httpResp.Body); err != nil {
 		return nil, err
 	}
 
@@ -92,13 +93,14 @@ func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*No
 	}
 
 	url := req.targetHost + t.notifyPath
-	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
+	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
 		return nil, err
 	}
+	defer httpResp.Body.Close()
 
 	notifyResp := &NotifyResponse{}
-	if _, err = notifyResp.Decode(resp.Body); err != nil {
+	if _, err = notifyResp.Decode(httpResp.Body); err != nil {
 		return nil, err
 	}
 
@@ -108,13 +110,14 @@ func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*No
 // SendGetPredecessorRequest sends a request to get the predecessor of server on given host
 func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*GetPredecessorResponse, error) {
 	url := host + t.getPredecessorPath
-	resp, err := t.httpClient.Get(url)
+	httpResp, err := t.httpClient.Get(url)
 	if err != nil {
 		return nil, err
 	}
+	defer httpResp.Body.Close()
 
 	predResp := &GetPredecessorResponse{}
-	if _, err = predResp.Decode(resp.Body); err != nil {
+	if _, err = predResp.Decode(httpResp.Body); err != nil {
 		return nil, err
 	}
 
