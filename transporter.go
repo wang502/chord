@@ -15,18 +15,19 @@ import (
 
 // Transporter represents a http communication gate with other nodes
 type Transporter struct {
-	httpClient         http.Client
-	listNodesPath      string
-	findSuccessorPath  string
-	notifyPath         string
+	httpClient        http.Client
+	listNodesPath     string
+	findSuccessorPath string
+
 	getPredecessorPath string
 	getSuccessorPath   string
 	setPredecessorPath string
-	joinPath           string
-	startPath          string
-	stopPath           string
-
 	getFingerTablePath string
+
+	notifyPath string
+	joinPath   string
+	startPath  string
+	stopPath   string
 }
 
 // NewTransporter initilizes a new Transporter object
@@ -34,14 +35,13 @@ func NewTransporter() *Transporter {
 	return &Transporter{
 		httpClient:         http.Client{Timeout: time.Second},
 		findSuccessorPath:  "/findSuccessor",
-		notifyPath:         "/notify",
 		getPredecessorPath: "/getPredecessor",
 		getSuccessorPath:   "/getSuccessor",
+		getFingerTablePath: "/getFingerTable",
+		notifyPath:         "/notify",
 		joinPath:           "/join",
 		startPath:          "/start",
 		stopPath:           "/stop",
-
-		getFingerTablePath: "/getFingerTable",
 	}
 }
 
@@ -54,7 +54,6 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 	mux.HandleFunc(t.joinPath, t.joinHandler(server)).Methods("POST")
 	mux.HandleFunc(t.startPath, t.startHandler(server)).Methods("POST")
 	mux.HandleFunc(t.stopPath, t.stopHandler(server)).Methods("POST")
-
 	mux.HandleFunc(t.getFingerTablePath, t.getFingerTableHandler(server))
 }
 
@@ -73,7 +72,6 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 
 	url := req.host + t.findSuccessorPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
-
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +93,6 @@ func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*No
 
 	url := req.targetHost + t.notifyPath
 	resp, err := t.httpClient.Post(url, "chord.protobuf", &b)
-
 	if err != nil {
 		return nil, err
 	}

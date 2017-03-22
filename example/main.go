@@ -61,7 +61,7 @@ func main() {
 			// start serving
 			err := server.Serve(listener.(*net.TCPListener))
 			if err != nil {
-				log.Printf("http server error, %s", err)
+				log.Printf("[ERROR]serve: %s", err)
 			}
 		}(server)
 	}
@@ -71,7 +71,7 @@ func main() {
 		// after receive an OS interrup signal, start the cleanup process
 		<-signalChan
 		if err := cleanup(listenersSlice, &wg); err != nil {
-			log.Println("failed to close every server")
+			log.Printf("[ERROR]cleanup: %s", err)
 		}
 		wg.Done()
 	}()

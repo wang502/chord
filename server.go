@@ -44,6 +44,8 @@ type Server struct {
 	stopChan chan bool
 
 	routineGroup sync.WaitGroup
+
+	c chan *Command
 }
 
 // NewServer initializes a new local server involved in Chord protocol
@@ -57,6 +59,7 @@ func NewServer(name string, config *Config, transporter *Transporter) *Server {
 		stabilizeInterval: DefaultStabilizeInterval,
 		fixFingerInterval: DefaultFixFingerInterval,
 		stopChan:          make(chan bool),
+		c:                 make(chan *Command, 256),
 	}
 	return server
 }
@@ -76,10 +79,6 @@ func (server *Server) Join(existingHost string) error {
 	if err = server.stabilize(); err != nil {
 		return fmt.Errorf("Chord.join.error.%s", err)
 	}
-
-	//if err = server.initFingerTable(existingHost); err != nil {
-	//	return fmt.Errorf("Chord.join.error.%s", err)
-	//}
 
 	return nil
 }
@@ -134,6 +133,10 @@ func (server *Server) Running() bool {
 	server.Lock()
 	defer server.Unlock()
 	return server.state == Running
+}
+
+func (server *Server) sendCommand(c Command) (interface{}, error) {
+	return nil, nil
 }
 
 // -------------------------------------------------------------------------
@@ -343,7 +346,6 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 			}
 		}
 	}
-	//return &RemoteNode{ID: localNode.ID, host: server.config.Host}
 	return nil
 }
 
