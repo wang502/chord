@@ -18,9 +18,6 @@ func TestDefaultConfig(t *testing.T) {
 	if conf.NumNodes != 8 {
 		t.Errorf("wrong number of nodes")
 	}
-	if conf.NumSuccessors != 8 {
-		t.Errorf("wrong number of successors")
-	}
 }
 
 func TestHashFunc(t *testing.T) {

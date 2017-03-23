@@ -71,6 +71,11 @@ func NewServer(name string, config *Config, transporter *Transporter) *Server {
 	return server
 }
 
+// Do tries to execute the command and returns the result
+func (server *Server) Do(command interface{}) (interface{}, error) {
+	return server.sendCommand(command)
+}
+
 // Join joins an existing chord ring, given existingHost is one of the node in the ring
 func (server *Server) Join(existingHost string) error {
 	localNode := server.node
@@ -190,6 +195,8 @@ func (server *Server) eventLoop() {
 				ev.res, err = server.processCommand(req)
 			case *NotifyRequest:
 				ev.res, err = server.processNotifyRequest(req)
+			default:
+				err = errors.New("Command did not implements Apply() method")
 			}
 			ev.c <- err
 		}
@@ -197,8 +204,9 @@ func (server *Server) eventLoop() {
 	}
 }
 
+// process the command to be applied on this Chord server
 func (server *Server) processCommand(c Command) (interface{}, error) {
-	return nil, nil
+	return c.Apply(server)
 }
 
 // -------------------------------------------------------------------------

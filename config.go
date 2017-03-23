@@ -10,11 +10,10 @@ import (
 
 // Config represents configuration for a Chord node
 type Config struct {
-	Host          string `json:"Host"`
-	HashFunc      hash.Hash
-	HashBits      int `json:"NumBits"`
-	NumNodes      int `json:"NumNodes"`
-	NumSuccessors int `json:"NumSuccessors"`
+	Host     string `json:"Host"`
+	HashFunc hash.Hash
+	HashBits int `json:"NumBits"`
+	NumNodes int `json:"NumNodes"`
 }
 
 // InitConfig initializes configuration from conf file
@@ -36,10 +35,9 @@ func InitConfig(confPath string) (*Config, error) {
 // DefaultConfig initializes a default configuration
 func DefaultConfig(host string) *Config {
 	return &Config{
-		Host:          host,
-		HashFunc:      sha1.New(),
-		HashBits:      3,
-		NumNodes:      8,
-		NumSuccessors: 8,
+		Host:     host,
+		HashFunc: sha1.New(),
+		HashBits: 3,
+		NumNodes: 8,
 	}
 }
