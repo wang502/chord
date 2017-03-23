@@ -1,6 +1,7 @@
 package chord
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -29,6 +30,12 @@ const (
 	Running = "running"
 )
 
+type event struct {
+	value interface{}
+	res   interface{}
+	c     chan error
+}
+
 // Server represents a single node in Chord protocol
 type Server struct {
 	name  string
@@ -45,7 +52,7 @@ type Server struct {
 
 	routineGroup sync.WaitGroup
 
-	c chan *Command
+	c chan *event
 }
 
 // NewServer initializes a new local server involved in Chord protocol
@@ -59,7 +66,7 @@ func NewServer(name string, config *Config, transporter *Transporter) *Server {
 		stabilizeInterval: DefaultStabilizeInterval,
 		fixFingerInterval: DefaultFixFingerInterval,
 		stopChan:          make(chan bool),
-		c:                 make(chan *Command, 256),
+		c:                 make(chan *event, 200),
 	}
 	return server
 }
@@ -79,7 +86,7 @@ func (server *Server) Join(existingHost string) error {
 	if err = server.stabilize(); err != nil {
 		return fmt.Errorf("Chord.join.error.%s", err)
 	}
-
+	log.Printf("[Join]host %s joined Chord ring", server.config.Host)
 	return nil
 }
 
@@ -109,6 +116,12 @@ func (server *Server) Start() error {
 		server.startPeriodicalFixFinger()
 	}()
 
+	server.routineGroup.Add(1)
+	go func() {
+		defer server.routineGroup.Done()
+		server.eventLoop()
+	}()
+
 	return nil
 }
 
@@ -135,7 +148,56 @@ func (server *Server) Running() bool {
 	return server.state == Running
 }
 
-func (server *Server) sendCommand(c Command) (interface{}, error) {
+// sendCommand sends command to be executed into command channel and block waiting for result
+func (server *Server) sendCommand(command interface{}) (interface{}, error) {
+	if !server.Running() {
+		return nil, errors.New("chord.sendCommand.error:server is not running")
+	}
+	e := &event{
+		value: command,
+		c:     make(chan error),
+	}
+
+	select {
+	case server.c <- e:
+	case <-server.stopChan:
+		return nil, errors.New("chord.sendCommand.error: Server Stopped")
+	default:
+	}
+
+	select {
+	case <-server.stopChan:
+		return nil, errors.New("chord.sendCommand.error: Server Stopped")
+	case err := <-e.c:
+		return e.res, err
+	}
+}
+
+// eventLoop handles the incoming commands to be executed, notify request
+func (server *Server) eventLoop() {
+	var err error
+
+	stopChan := server.stopChan
+	state := server.State()
+	for state != Stopped {
+		select {
+		case <-stopChan:
+			log.Printf("chord.PeriodicalFixFinger.stop.%s", server.config.Host)
+			return
+		case ev := <-server.c:
+			switch req := ev.value.(type) {
+			case Command:
+				ev.res, err = server.processCommand(req)
+			case *NotifyRequest:
+				ev.res, err = server.processNotifyRequest(req)
+			}
+			ev.c <- err
+		}
+		state = server.State()
+	}
+}
+
+func (server *Server) processCommand(c Command) (interface{}, error) {
 	return nil, nil
 }
 
@@ -291,8 +353,16 @@ func (server *Server) stabilize() error {
 	return nil
 }
 
-// Notify handles the NotifyRequest sent from another server
 func (server *Server) notify(req *NotifyRequest) (*NotifyResponse, error) {
+	res, err := server.sendCommand(req)
+	if res != nil {
+		return res.(*NotifyResponse), err
+	}
+	return &NotifyResponse{}, err
+}
+
+// Notify handles the NotifyRequest sent from another server
+func (server *Server) processNotifyRequest(req *NotifyRequest) (*NotifyResponse, error) {
 	possiblePredID := []byte(req.ID)
 	possiblePredHost := req.host
 	currentPredecessor := server.node.Predecessor()
@@ -350,7 +420,7 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 }
 
 // HandleGetPredecessorRequest returns the predecessor of this local node
-func (server *Server) handleGetPredecessorRequest() (*GetPredecessorResponse, error) {
+func (server *Server) processGetPredecessorRequest() (*GetPredecessorResponse, error) {
 	pred := server.node.Predecessor()
 	if pred == nil {
 		return nil, fmt.Errorf("this node has no predecessor")
@@ -360,7 +430,7 @@ func (server *Server) handleGetPredecessorRequest() (*GetPredecessorResponse, er
 }
 
 // HandleGetSuccessorRequest returns the successor of this local node
-func (server *Server) handleGetSuccessorRequest() (*FindSuccessorResponse, error) {
+func (server *Server) processGetSuccessorRequest() (*FindSuccessorResponse, error) {
 	succ := server.node.Successor()
 	resp := &FindSuccessorResponse{}
 	resp.ID = string(succ.ID)

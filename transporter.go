@@ -162,6 +162,7 @@ func (t *Transporter) notifyHandler(server *Server) http.HandlerFunc {
 			return
 		}
 
+		//resp, err := server.processNotifyRequest(req)
 		resp, err := server.notify(req)
 		if resp == nil || err != nil {
 			http.Error(w, "failed to notify", http.StatusBadRequest)
@@ -178,7 +179,7 @@ func (t *Transporter) notifyHandler(server *Server) http.HandlerFunc {
 // getPredecessorHandler handles incoming request to return this local server's predecessor
 func (t *Transporter) getPredecessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		predResp, err := server.handleGetPredecessorRequest()
+		predResp, err := server.processGetPredecessorRequest()
 		if predResp == nil || err != nil {
 			http.Error(w, "failed to return predecessor", http.StatusBadRequest)
 			return
@@ -195,7 +196,7 @@ func (t *Transporter) getPredecessorHandler(server *Server) http.HandlerFunc {
 // getSuccessorHandler handles the incoming request to return this node's successor
 func (t *Transporter) getSuccessorHandler(server *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		succResp, err := server.handleGetSuccessorRequest()
+		succResp, err := server.processGetSuccessorRequest()
 		if err != nil {
 			http.Error(w, "failed to return successor", http.StatusBadRequest)
 			return
