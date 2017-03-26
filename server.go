@@ -329,9 +329,9 @@ func (server *Server) stabilize() error {
 	successor := server.node.Successor()
 	predResp, err := server.transporter.SendGetPredecessorRequest(server, successor.host)
 	if predResp == nil {
-		log.Printf("[ERROR]Chord.stabilize.error.%s", err)
+		log.Printf("[ERROR]stabilize.error.%s", err)
 	} else if err != nil {
-		return fmt.Errorf("[ERROR]Chord.stabilize.error.%s", err)
+		return fmt.Errorf("stabilize.error.%s", err)
 	} else {
 		ID := []byte(predResp.ID)
 		host := predResp.host
@@ -354,7 +354,7 @@ func (server *Server) stabilize() error {
 	// notify the immediate successor about the server
 	_, err = server.transporter.SendNotifyRequest(server, NewNotifyRequest(server.node.ID, server.config.Host, server.node.Successor().host))
 	if err != nil {
-		return fmt.Errorf("Chord.stabilize.notify.%s", err)
+		return fmt.Errorf("stabilize.error.%s", err)
 	}
 	log.Printf("[Stabilize]%s(%x)'s successor is %s(%x)", server.config.Host, server.node.ID, server.node.Successor().host, server.node.Successor().ID)
 
