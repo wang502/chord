@@ -35,7 +35,7 @@ func TestStartI(t *testing.T) {
 	// initialize an http client for sending request to test servers
 	client := http.Client{}
 
-	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
+	// Test server1 joins an existing Chord ring, from exisiting host "http://localhost:3000"
 	_, err := client.Post("http://localhost:5000/join?host=http://localhost:6000", "chord.join", nil)
 
 	// Test server1's start function, check whether it periodically stabilizes
@@ -88,7 +88,7 @@ func TestStartI(t *testing.T) {
 	// -------------------------
 	//
 	// -------------------------
-	// Test server1 joins an exsiting Chord ring, from exisiting host "http://localhost:3000"
+	// Test server1 joins an existing Chord ring, from exisiting host "http://localhost:3000"
 	//
 	_, err = client.Post("http://localhost:7000/join?host=http://localhost:5000", "chord.join", nil)
 	_, err = client.Post("http://localhost:7000/start", "chord.start", nil)

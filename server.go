@@ -323,7 +323,7 @@ func (server *Server) periodicalStabilize(c chan bool) {
 // stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
 func (server *Server) stabilize() error {
 	if server.node.Successor() == nil {
-		return fmt.Errorf("no need to stabilize.no sucessor")
+		return fmt.Errorf("no need to stabilize.no successor")
 	}
 
 	successor := server.node.Successor()
@@ -411,7 +411,7 @@ func (server *Server) FindSuccessor(req *FindSuccessorRequest) (*FindSuccessorRe
 	return server.transporter.SendFindSuccessorRequest(server, findSuccRequest)
 }
 
-// closestPreceedingNode is a helper function to find the cloest preceeding node of the node with given hashed id from finger table
+// closestPreceedingNode is a helper function to find the cloest preceding node of the node with given hashed id from finger table
 func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 	localNode := server.node
 	finger := localNode.Finger()

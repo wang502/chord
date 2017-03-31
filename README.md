@@ -1,4 +1,5 @@
 # Chord
+[![Go Report Card](https://goreportcard.com/badge/github.com/wang502/chord)](https://goreportcard.com/report/github.com/wang502/chord)
 An Go implementation of Chord P2P Protocol 
 
 ## Install

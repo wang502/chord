@@ -30,7 +30,7 @@ func NewFindSuccessorRequest(bytes []byte, host string) *FindSuccessorRequest {
 }
 
 // Encode encodes the FindSuccessorRequest into a buffer
-// returns the number of bytes written to the buffer, and error if occured
+// returns the number of bytes written to the buffer, and error if occurred
 func (req *FindSuccessorRequest) Encode(buf io.Writer) (int, error) {
 	pb := &pb.FindSuccessorRequest{
 		ID:   req.ID,
@@ -65,7 +65,7 @@ func (req *FindSuccessorRequest) Decode(r io.Reader) (int, error) {
 }
 
 // Encode encodes the FindSuccessorResponse into a buffer
-// returns the number of bytes written to the buffer, and error if occured
+// returns the number of bytes written to the buffer, and error if occurred
 func (resp *FindSuccessorResponse) Encode(buf io.Writer) (int, error) {
 	pb := &pb.FindSuccessorResponse{
 		ID:   resp.ID,
