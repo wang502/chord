@@ -82,14 +82,14 @@ func (server *Server) Join(existingHost string) error {
 	findSuccessorReq := NewFindSuccessorRequest(localNode.ID, existingHost)
 	findSuccessorResp, err := server.transporter.SendFindSuccessorRequest(server, findSuccessorReq)
 	if err != nil {
-		return fmt.Errorf("Chord.join.error.%s", err)
+		return fmt.Errorf("Chord join failed: %s", err)
 	}
 
 	successorNode := NewRemoteNode([]byte(findSuccessorResp.ID), findSuccessorResp.host)
 	localNode.SetSuccessor(successorNode)
 
 	if err = server.stabilize(); err != nil {
-		return fmt.Errorf("Chord.join.error.%s", err)
+		return fmt.Errorf("Chord join failed: %s", err)
 	}
 	log.Printf("[Join]host %s joined Chord ring", server.config.Host)
 	return nil
@@ -103,7 +103,7 @@ func (server *Server) Leave() error {
 // Start the Chord server
 func (server *Server) Start() error {
 	if server.Running() {
-		return fmt.Errorf("chord.Start.error.%s", server.state)
+		return fmt.Errorf("Chord start failed: %s", server.state)
 	}
 
 	server.stopChan = make(chan bool)
@@ -134,7 +134,7 @@ func (server *Server) Start() error {
 func (server *Server) Stop() error {
 	log.Printf("stopping Chord server %s......", server.config.Host)
 	if server.State() == Stopped {
-		return fmt.Errorf("chord.Stop.error.%s", server.State())
+		return fmt.Errorf("Chord stop failed:%s", server.State())
 	}
 
 	close(server.stopChan)
@@ -156,7 +156,7 @@ func (server *Server) Running() bool {
 // sendCommand sends command to be executed into command channel and block waiting for result
 func (server *Server) sendCommand(command interface{}) (interface{}, error) {
 	if !server.Running() {
-		return nil, errors.New("chord.sendCommand.error:server is not running")
+		return nil, errors.New("Chord send command failed:server is not running")
 	}
 	e := &event{
 		value: command,
@@ -166,13 +166,13 @@ func (server *Server) sendCommand(command interface{}) (interface{}, error) {
 	select {
 	case server.c <- e:
 	case <-server.stopChan:
-		return nil, errors.New("chord.sendCommand.error: Server Stopped")
+		return nil, errors.New("Chord send command failed: Server Stopped")
 	default:
 	}
 
 	select {
 	case <-server.stopChan:
-		return nil, errors.New("chord.sendCommand.error: Server Stopped")
+		return nil, errors.New("Chord send command failed: Server Stopped")
 	case err := <-e.c:
 		return e.res, err
 	}
@@ -323,7 +323,7 @@ func (server *Server) periodicalStabilize(c chan bool) {
 // stabilize is called periodically to verify this server's immediate successor and tells the successor about this server
 func (server *Server) stabilize() error {
 	if server.node.Successor() == nil {
-		return fmt.Errorf("no need to stabilize.no successor")
+		return fmt.Errorf("Chord stabilize failed: no successor")
 	}
 
 	successor := server.node.Successor()
@@ -331,7 +331,7 @@ func (server *Server) stabilize() error {
 	if predResp == nil {
 		log.Printf("[ERROR]stabilize.error.%s", err)
 	} else if err != nil {
-		return fmt.Errorf("stabilize.error.%s", err)
+		return fmt.Errorf("Chord stabilize failed: %s", err)
 	} else {
 		ID := []byte(predResp.ID)
 		host := predResp.host
@@ -431,7 +431,7 @@ func (server *Server) closestPreceedingNode(id []byte) *RemoteNode {
 func (server *Server) processGetPredecessorRequest() (*GetPredecessorResponse, error) {
 	pred := server.node.Predecessor()
 	if pred == nil {
-		return nil, fmt.Errorf("this node has no predecessor")
+		return nil, fmt.Errorf("Chord processGetPredecessorRequest failed: node has no predecessor")
 	}
 	resp := NewGetPredecessorResponse(pred.ID, pred.host)
 	return resp, nil

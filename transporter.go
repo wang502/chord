@@ -67,19 +67,19 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send successor request failed: %s", err)
 	}
 
 	url := req.host + t.findSuccessorPath
 	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send successor request failed: %s", err)
 	}
 	defer httpResp.Body.Close()
 
 	successorResp := &FindSuccessorResponse{}
 	if _, err = successorResp.Decode(httpResp.Body); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send successor request failed: %s", err)
 	}
 
 	return successorResp, nil
@@ -89,19 +89,19 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*NotifyResponse, error) {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send notify request failed: %s", err)
 	}
 
 	url := req.targetHost + t.notifyPath
 	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send notify request failed: %s", err)
 	}
 	defer httpResp.Body.Close()
 
 	notifyResp := &NotifyResponse{}
 	if _, err = notifyResp.Decode(httpResp.Body); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send notify request failed: %s", err)
 	}
 
 	return notifyResp, nil
@@ -112,13 +112,13 @@ func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*G
 	url := host + t.getPredecessorPath
 	httpResp, err := t.httpClient.Get(url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send getPredecessor request failed: %s", err)
 	}
 	defer httpResp.Body.Close()
 
 	predResp := &GetPredecessorResponse{}
 	if _, err = predResp.Decode(httpResp.Body); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("send getPredecessor request failed: %s", err)
 	}
 
 	return predResp, nil

@@ -3,6 +3,7 @@ package chord
 import (
 	"crypto/sha1"
 	"encoding/json"
+	"fmt"
 	"hash"
 	"io/ioutil"
 	"log"
@@ -21,13 +22,13 @@ func InitConfig(confPath string) (*Config, error) {
 	bytes, err := ioutil.ReadFile(confPath)
 	log.Println(string(bytes))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init config failed: %s", err)
 	}
 
 	config := Config{}
 	err = json.Unmarshal(bytes, &config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init config failed: %s", err)
 	}
 	return &config, nil
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/wang502/chord/protobuf"
@@ -37,8 +36,8 @@ func (resp *GetPredecessorResponse) Encode(w io.Writer) (int, error) {
 	}
 	data, err := proto.Marshal(pb)
 	if err != nil {
-		log.Println("chord.GetPredecessorResponse.encode.error")
-		return -1, fmt.Errorf("chord.GetPredecessorResponse.encode.error.%s", err)
+		//log.Println("chord.GetPredecessorResponse.encode.error")
+		return -1, fmt.Errorf("encode GetPredecessorResponse failed: %s", err)
 	}
 
 	return w.Write(data)
@@ -48,8 +47,8 @@ func (resp *GetPredecessorResponse) Encode(w io.Writer) (int, error) {
 func (resp *GetPredecessorResponse) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		log.Println("chord.GetPredecessorResponse.decode.error")
-		return -1, err
+		//log.Println("chord.GetPredecessorResponse.decode.error")
+		return -1, fmt.Errorf("decode GetPredecessorResponse failed: %s", err)
 	}
 
 	pb := &pb.GetPredecessorResponse{}

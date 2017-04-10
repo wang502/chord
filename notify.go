@@ -52,7 +52,7 @@ func (req *NotifyRequest) Encode(w io.Writer) (int, error) {
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		log.Println("chord.NotifyRequest.encode.error")
-		return -1, fmt.Errorf("chord.NotifyRequest.encode.error.%s", err)
+		return -1, fmt.Errorf("encode NotifyRequest failed: %s", err)
 	}
 
 	return w.Write(data)
@@ -63,12 +63,12 @@ func (req *NotifyRequest) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		log.Println("chord.NotifyRequest.decode.error")
-		return -1, fmt.Errorf("chord.NotifyRequest.decode.error.%s", err)
+		return -1, fmt.Errorf("decode NotifyRequest failed: %s", err)
 	}
 
 	pb := &pb.NotifyRequest{}
 	if err = proto.Unmarshal(data, pb); err != nil {
-		return -1, fmt.Errorf("chord.NotifyRequest.decode.error.%s", err)
+		return -1, fmt.Errorf("decode NotifyRequest failed: %s", err)
 	}
 
 	req.ID = pb.ID
@@ -85,8 +85,8 @@ func (resp *NotifyResponse) Encode(w io.Writer) (int, error) {
 	}
 	data, err := proto.Marshal(pb)
 	if err != nil {
-		log.Println("chord.NotifyResponse.encode.error")
-		return -1, fmt.Errorf("chord.NotifyResponse.encode.error.%s", err)
+		//log.Println("chord.NotifyResponse.encode.error")
+		return -1, fmt.Errorf("encode NotifyResponse failed: %s", err)
 	}
 
 	return w.Write(data)
@@ -96,13 +96,13 @@ func (resp *NotifyResponse) Encode(w io.Writer) (int, error) {
 func (resp *NotifyResponse) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		log.Println("chord.NotifyResponse.decode.error")
-		return -1, fmt.Errorf("chord.NotifyResponse.decode.error.%s", err)
+		//log.Println("chord.NotifyResponse.decode.error")
+		return -1, fmt.Errorf("decode NotifyResponse failed: %s", err)
 	}
 
 	pb := &pb.NotifyResponse{}
 	if err = proto.Unmarshal(data, pb); err != nil {
-		return -1, fmt.Errorf("chord.NotifyResponse.decode.error.%s", err)
+		return -1, fmt.Errorf("decode NotifyResponse failed: %s", err)
 	}
 
 	resp.ID = pb.ID

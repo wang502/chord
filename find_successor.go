@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	pb "github.com/wang502/chord/protobuf"
 )
@@ -39,7 +41,7 @@ func (req *FindSuccessorRequest) Encode(buf io.Writer) (int, error) {
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		log.Println("[ERROR]chord.FindSuccessorRequest.encode.error")
-		return -1, err
+		return -1, fmt.Errorf("encode FindSuccessorRequest failed: %s", err)
 	}
 
 	return buf.Write(data)
@@ -49,14 +51,14 @@ func (req *FindSuccessorRequest) Encode(buf io.Writer) (int, error) {
 func (req *FindSuccessorRequest) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		log.Println("[ERROR]chord.FindSuccessorRequest.decode.error")
-		return -1, err
+		//log.Println("[ERROR]chord.FindSuccessorRequest.decode.error")
+		return -1, fmt.Errorf("decode FindSuccessorRequest failed: %s", err)
 	}
 
 	pb := &pb.FindSuccessorRequest{}
 	if err = proto.Unmarshal(data, pb); err != nil {
-		log.Println("[ERROR]chord.FindSuccessorRequest.decode.error")
-		return -1, err
+		//log.Println("[ERROR]chord.FindSuccessorRequest.decode.error")
+		return -1, fmt.Errorf("decode FindSuccessorRequest failed: %s", err)
 	}
 
 	req.ID = pb.ID
@@ -74,7 +76,7 @@ func (resp *FindSuccessorResponse) Encode(buf io.Writer) (int, error) {
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		log.Println("[ERROR]chord.FindSuccessorResponse.encode.error")
-		return -1, err
+		return -1, fmt.Errorf("encode FindSuccessorReponse failed: %s", err)
 	}
 
 	return buf.Write(data)
@@ -85,13 +87,13 @@ func (resp *FindSuccessorResponse) Decode(r io.Reader) (int, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		log.Println("[ERROR]chord.FindSuccessorRequest.decode.error")
-		return -1, err
+		return -1, fmt.Errorf("decode FindSuccessorResponse failed: %s", err)
 	}
 
 	pb := &pb.FindSuccessorResponse{}
 	if err = proto.Unmarshal(data, pb); err != nil {
 		log.Println("[ERROR]chord.FindSuccessorResponse.decode.error")
-		return -1, err
+		return -1, fmt.Errorf("decode FindSuccessorResponse failed: %s", err)
 	}
 
 	resp.ID = pb.ID
