@@ -6,11 +6,10 @@ import (
 
 	"log"
 
-	"fmt"
-
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 // Transporter represents a http communication gate with other nodes
@@ -47,14 +46,14 @@ func NewTransporter() *Transporter {
 
 // Install applies the chord route to an http router
 func (t *Transporter) Install(server *Server, mux *mux.Router) {
-	mux.HandleFunc(t.notifyPath, t.notifyHandler(server))
-	mux.HandleFunc(t.findSuccessorPath, t.findSuccessorHandler(server))
-	mux.HandleFunc(t.getPredecessorPath, t.getPredecessorHandler(server))
-	mux.HandleFunc(t.getSuccessorPath, t.getSuccessorHandler(server))
-	mux.HandleFunc(t.joinPath, t.joinHandler(server)).Methods("POST")
-	mux.HandleFunc(t.startPath, t.startHandler(server)).Methods("POST")
-	mux.HandleFunc(t.stopPath, t.stopHandler(server)).Methods("POST")
-	mux.HandleFunc(t.getFingerTablePath, t.getFingerTableHandler(server))
+	mux.Handle(t.findSuccessorPath, transporterHandler(t.findSuccessorHandler(server)))
+	mux.Handle(t.findSuccessorPath, transporterHandler(t.notifyHandler(server)))
+	mux.Handle(t.getPredecessorPath, transporterHandler(t.getPredecessorHandler(server)))
+	mux.Handle(t.getSuccessorPath, transporterHandler(t.getSuccessorHandler(server)))
+	mux.Handle(t.joinPath, transporterHandler(t.joinHandler(server))).Methods("POST")
+	mux.Handle(t.startPath, transporterHandler(t.startHandler(server))).Methods("POST")
+	mux.Handle(t.stopPath, transporterHandler(t.stopHandler(server))).Methods("POST")
+	mux.Handle(t.getFingerTablePath, transporterHandler(t.getFingerTableHandler(server)))
 }
 
 // -------------------------------------------------------------------------
@@ -67,19 +66,19 @@ func (t *Transporter) Install(server *Server, mux *mux.Router) {
 func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccessorRequest) (*FindSuccessorResponse, error) {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
-		return nil, fmt.Errorf("send successor request failed: %s", err)
+		return nil, errors.Wrap(err, encodeReqErrMsg)
 	}
 
 	url := req.host + t.findSuccessorPath
 	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
-		return nil, fmt.Errorf("send successor request failed: %s", err)
+		return nil, errors.Wrap(err, "send successor request failed")
 	}
 	defer httpResp.Body.Close()
 
 	successorResp := &FindSuccessorResponse{}
 	if _, err = successorResp.Decode(httpResp.Body); err != nil {
-		return nil, fmt.Errorf("send successor request failed: %s", err)
+		return nil, errors.Wrap(err, "send successor request failed")
 	}
 
 	return successorResp, nil
@@ -89,19 +88,19 @@ func (t *Transporter) SendFindSuccessorRequest(server *Server, req *FindSuccesso
 func (t *Transporter) SendNotifyRequest(server *Server, req *NotifyRequest) (*NotifyResponse, error) {
 	var b bytes.Buffer
 	if _, err := req.Encode(&b); err != nil {
-		return nil, fmt.Errorf("send notify request failed: %s", err)
+		return nil, errors.Wrap(err, encodeReqErrMsg)
 	}
 
 	url := req.targetHost + t.notifyPath
 	httpResp, err := t.httpClient.Post(url, "chord.protobuf", &b)
 	if err != nil {
-		return nil, fmt.Errorf("send notify request failed: %s", err)
+		return nil, errors.Wrap(err, "send notify request failed")
 	}
 	defer httpResp.Body.Close()
 
 	notifyResp := &NotifyResponse{}
 	if _, err = notifyResp.Decode(httpResp.Body); err != nil {
-		return nil, fmt.Errorf("send notify request failed: %s", err)
+		return nil, errors.Wrap(err, decodeRespErrMsg)
 	}
 
 	return notifyResp, nil
@@ -112,13 +111,13 @@ func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*G
 	url := host + t.getPredecessorPath
 	httpResp, err := t.httpClient.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("send getPredecessor request failed: %s", err)
+		return nil, errors.Wrap(err, "send getPredecessor request failed")
 	}
 	defer httpResp.Body.Close()
 
 	predResp := &GetPredecessorResponse{}
 	if _, err = predResp.Decode(httpResp.Body); err != nil {
-		return nil, fmt.Errorf("send getPredecessor request failed: %s", err)
+		return nil, errors.Wrap(err, decodeRespErrMsg)
 	}
 
 	return predResp, nil
@@ -130,133 +129,126 @@ func (t *Transporter) SendGetPredecessorRequest(server *Server, host string) (*G
 //
 //	-------------------------------------------------------------------------
 
+const (
+	encodeReqErrMsg  = "failed to encode request"
+	decodeReqErrMsg  = "failed to decode request"
+	encodeRespErrMsg = "faield to encode response"
+	decodeRespErrMsg = "failed to decode response"
+)
+
+type transporterHandler func(http.ResponseWriter, *http.Request) error
+
+func (h transporterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := h(w, r); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
 // findSuccessorHandler handles incoming request to find successor of the given key
-func (t *Transporter) findSuccessorHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) findSuccessorHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		req := &FindSuccessorRequest{}
 		if _, err := req.Decode(r.Body); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, decodeReqErrMsg)
 		}
 
 		resp, err := server.FindSuccessor(req)
 		if resp == nil || err != nil {
-			http.Error(w, "Failed to return successor information", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, "failed to find successor")
 		}
 
 		log.Printf("host %s's successor is: %s", req.host, resp.host)
 		if _, err := resp.Encode(w); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, encodeRespErrMsg)
 		}
+		return nil
 	}
 }
 
 // notifyHandler handles incoming notify about possibe new predecessor
-func (t *Transporter) notifyHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) notifyHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		req := &NotifyRequest{}
 		if _, err := req.Decode(r.Body); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, decodeReqErrMsg)
 		}
 
 		//resp, err := server.processNotifyRequest(req)
 		resp, err := server.notify(req)
 		if resp == nil || err != nil {
-			http.Error(w, "failed to notify", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, "failed to notify")
 		}
 
 		if _, err := resp.Encode(w); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, encodeRespErrMsg)
 		}
+		return nil
 	}
 }
 
 // getPredecessorHandler handles incoming request to return this local server's predecessor
-func (t *Transporter) getPredecessorHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) getPredecessorHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		predResp, err := server.processGetPredecessorRequest()
 		if predResp == nil || err != nil {
-			http.Error(w, "failed to return predecessor", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, "failed to process request of getting predecessor")
 		}
 		log.Printf("host %s's predecessor is %s", server.config.Host, predResp.host)
 
 		if _, err := predResp.Encode(w); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, encodeRespErrMsg)
 		}
+		return nil
 	}
 }
 
 // getSuccessorHandler handles the incoming request to return this node's successor
-func (t *Transporter) getSuccessorHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) getSuccessorHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		succResp, err := server.processGetSuccessorRequest()
 		if err != nil {
-			http.Error(w, "failed to return successor", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, "failed to process request of getting successor")
 		}
 
 		log.Printf("host %s's successor is %s", server.config.Host, succResp.host)
 
 		if _, err := succResp.Encode(w); err != nil {
-			http.Error(w, "", http.StatusBadRequest)
-			return
+			return errors.Wrap(err, encodeRespErrMsg)
 		}
+		return nil
 	}
 }
 
 // joinHandler handles the post request for this server to join an existing Chord ring
 // the url pattern is '/join?host='
-func (t *Transporter) joinHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) joinHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		host := r.URL.Query().Get("host")
-		log.Println(host)
-		err := server.Join(host)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to join %s.%s", host, err), http.StatusBadRequest)
-			return
-		}
-
-		fmt.Fprintf(w, "success to join %s", host)
+		return server.Join(host)
 	}
 }
 
 // startHandler handles the incoming request to start this Chord server
-func (t *Transporter) startHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := server.Start()
-		if err != nil {
-			fmt.Fprintf(w, "error to start server %s", server.config.Host)
-		} else {
-			fmt.Fprintf(w, "success to start server %s", server.config.Host)
-		}
+func (t *Transporter) startHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return server.Start()
 	}
 }
 
 // stopHandler handles incoming request to stop the Chord server
-func (t *Transporter) stopHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := server.Stop()
-		if err != nil {
-			fmt.Fprintf(w, "error to stop server %s", server.config.Host)
-		} else {
-			fmt.Fprintf(w, "success to stop server %s", server.config.Host)
-		}
+func (t *Transporter) stopHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		return server.Stop()
 	}
 }
 
 // getFingerTableHandler handles incoming request to log entries in finger table
-func (t *Transporter) getFingerTableHandler(server *Server) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (t *Transporter) getFingerTableHandler(server *Server) transporterHandler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		fingers := server.node.Finger()
 		for i := 0; i < server.config.HashBits; i++ {
 			log.Printf("host %s's finger at index %d: %s", server.config.Host, i, fingers[i])
 		}
+		return nil
 	}
 }
